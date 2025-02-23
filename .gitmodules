@@ -6,5 +6,5 @@
 	path = schedulers/tetrisched/extern/tbb
 	url = https://github.com/oneapi-src/oneTBB.git
 [submodule "tpch-spark"]
-	path = tpch-spark
+	path = rpc/tpch-spark
 	url = https://github.com/gatech-sysml/tpch-spark.git
