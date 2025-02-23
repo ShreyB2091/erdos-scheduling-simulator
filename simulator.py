@@ -519,7 +519,7 @@ class Simulator(object):
                 step_size = time_until_next_event
             return None if time_until_next_event.is_invalid() else step_size
 
-        self.__simulate_f(should_step=f)
+        self.__simulate_f(calculate_step_size=f)
 
     def tick(self, until: EventTime) -> None:
         """Tick the simulator until the specified time"""
@@ -535,24 +535,21 @@ class Simulator(object):
 
             return None
 
-        self.__simulate_f(should_step=f)
+        self.__simulate_f(calculate_step_size=f)
 
-    def __simulate_f(self, should_step: Callable[None, Optional[EventTime]]) -> None:
+    def __simulate_f(self, calculate_step_size: Callable[None, Optional[EventTime]]) -> None:
         """Steps the simulator while a predicate is satisfied.
 
         This method continuously advances the simulation by calling the
-        provided `should_step` function, which determines the size of each
-        simulation step. The simulation continues until `should_step` returns
+        provided `calculate_step_size` function, which determines the size of each
+        simulation step. The simulation continues until `calculate_step_size` returns
         None, indicating that stepping should stop.
 
         Args:
-            should_step (Callable[[EventTime], bool]):
-                A predicate function that determines the next step size for the simulation.
-                - If the function returns an EventTime value, the simulator steps by that amount.
-                - If the function returns None, the simulation stops.
+            calculate_step_size: A callable that returns the next step size for simulation
         """
         while True:
-            step_size = should_step()
+            step_size = calculate_step_size()
             if not step_size:
                 break
             self.__step(step_size=step_size)

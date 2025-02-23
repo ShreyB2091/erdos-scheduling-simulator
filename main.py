@@ -119,7 +119,9 @@ flags.DEFINE_integer(
 flags.DEFINE_bool(
     "orchestrated",
     False,
-    "Runs the simulator in orchestrated mode. Currently used by the ERDOS service.",
+    "Runs the simulator in orchestrated mode. Currently used by the ERDOS service."
+    "When orchestrated mode is enabled, the client is responsible for manipulating the"
+    "simulator object (stepping, adding events, updating the workload, etc.)."
 )
 flags.DEFINE_integer(
     "min_placement_push_duration",
