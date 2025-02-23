@@ -24,8 +24,7 @@ from ray.train import RunConfig
 
 
 def run_simulator(label: str, output_dir: Path, flags: list):
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     def outp(ext):
         return (output_dir / f"{label}.{ext}").resolve()
@@ -59,11 +58,10 @@ def run_simulator(label: str, output_dir: Path, flags: list):
 
 def run_analysis(label: str, results_dir: Path):
     output_dir = results_dir / "analysis"
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     def outp(ext):
-        return (output_dir / f"{ext}").resolve()
+        return (output_dir / f"{label}.{ext}").resolve()
 
     stdout, stderr = outp("stdout"), outp("stderr")
     with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
