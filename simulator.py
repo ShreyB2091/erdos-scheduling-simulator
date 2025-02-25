@@ -388,6 +388,11 @@ class Simulator(object):
             _flags.min_placement_push_duration, EventTime.Unit.US
         )
 
+        # Number of taskgraphs to clip when calculating SLO
+        # attainment.
+        self._slo_ramp_up_clip = _flags.slo_ramp_up_clip
+        self._slo_ramp_down_clip = _flags.slo_ramp_down_clip
+
         # Initialize the event queue.
         # To make the system continue working the loop, we add three events:
         # - SIMULATOR_START: A notional event start the simulator and log into the CSV.
@@ -2224,11 +2229,13 @@ class Simulator(object):
                 )
 
     def log_stats(self, sim_time: EventTime):
+        ramp_up = self._slo_ramp_up_clip
+        ramp_down = self._slo_ramp_down_clip
         self._csv_logger.debug(
             f"{sim_time.time},LOG_STATS,{self._finished_tasks},"
             f"{self._cancelled_tasks},{self._missed_task_deadlines},"
             f"{self._finished_task_graphs},"
             f"{len(self._workload.get_cancelled_task_graphs())},"
             f"{self._missed_task_graph_deadlines},"
-            f"{self._workload.calculate_slo()}"
+            f"{self._workload.calculate_slo(ramp_up, ramp_down)}"
         )

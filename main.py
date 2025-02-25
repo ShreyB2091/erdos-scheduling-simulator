@@ -86,6 +86,16 @@ flags.DEFINE_string(
 )
 flags.DEFINE_bool("stats", False, "Print the statistics from the tasks loaded.")
 flags.DEFINE_bool("dry_run", False, "If True, the simulator does not run.")
+flags.DEFINE_integer(
+    "slo_ramp_up_clip",
+    0,
+    "Number of initial task graphs to ignore when calculating SLO attainment."
+)
+flags.DEFINE_integer(
+    "slo_ramp_down_clip",
+    0,
+    "Number of final task graphs to ignore when calculating SLO attainment."
+)
 
 # Simulator related flags.
 flags.DEFINE_integer(
