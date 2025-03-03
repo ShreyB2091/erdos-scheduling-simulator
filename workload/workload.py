@@ -364,6 +364,29 @@ class Workload(object):
                 )
         return cancelled_task_graphs
 
+    def calculate_slo(self, ramp_up: int, ramp_down: int) -> float:
+        """Calculate the current SLO attainment.
+
+        Optionally, some number of task graphs at the beginning or end
+        will be ignored.  Only completed or cancelled task graphs are
+        considered.  If, after clipping the ramp up and ramp down,
+        there are no task graphs, 0 is returned.
+
+        Arguments:
+        ramp_up -- number of initial task graphs to ignore
+        ramp_down -- number of final task graphs to ignore
+
+        Returns:
+        The clipped SLO attainment, or 0 if no completed task graphs
+        """
+        task_graphs = list(self._task_graphs.values())[ramp_up:-ramp_down]
+        if not task_graphs:
+            return 0
+        met = sum(1 for task_graph in task_graphs
+                  if task_graph.is_complete() and
+                  task_graph.completion_time <= task_graph.deadline)
+        return met / len(task_graphs)
+
     def __len__(self) -> int:
         """Returns the total number of Tasks in the Workload."""
         total_tasks = 0

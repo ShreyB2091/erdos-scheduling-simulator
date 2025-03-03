@@ -29,12 +29,6 @@ from workload import (
 from .base_workload_loader import BaseWorkloadLoader
 
 
-class TpchQueryDifficulty(Enum):
-    easy = {1, 3, 4, 6, 12, 14, 17, 19, 22}
-    medium = {10, 11, 13, 15, 16, 18, 20}
-    hard = {2, 7, 8, 9, 21}
-
-
 class TpchLoader:
     """Construct TPC-H task graph from a query profile
 
@@ -296,8 +290,13 @@ class TpchWorkloadLoader(BaseWorkloadLoader):
         # Intialize [(query_num, release_time)]
         self._query_nums_and_release_times = []
         if len(flags.override_num_invocations) > 0:
+            partitioning = [
+                [int(query_num) for query_num in bucket.split(",")]
+                for bucket in flags.tpch_query_partitioning.split(":")
+            ]
+
             # One each for easy, medium, and hard
-            assert len(flags.override_num_invocations) == len(TpchQueryDifficulty)
+            assert len(flags.override_num_invocations) == len(partitioning)
             assert len(flags.override_poisson_arrival_rates) == len(
                 flags.override_num_invocations
             )
@@ -305,7 +304,7 @@ class TpchWorkloadLoader(BaseWorkloadLoader):
             # only works with poisson distribution
             assert flags.override_release_policy == "poisson"
 
-            for i, part in enumerate(TpchQueryDifficulty):
+            for i, part in enumerate(partitioning):
                 release_policy = self.__make_release_policy(
                     policy_type=flags.override_release_policy,
                     arrival_rate=float(flags.override_poisson_arrival_rates[i]),
@@ -317,7 +316,7 @@ class TpchWorkloadLoader(BaseWorkloadLoader):
                     )
                 )
                 query_nums = [
-                    self._rng.choice(list(part.value))
+                    self._rng.choice(part)
                     for _ in range(int(flags.override_num_invocations[i]))
                 ]
                 self._query_nums_and_release_times.extend(
