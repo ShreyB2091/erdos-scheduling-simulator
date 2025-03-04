@@ -7,6 +7,7 @@ import random
 from typing import Any, Dict, List, Optional, Callable, Tuple
 from pathlib import Path
 from enum import Enum
+from dataclasses import dataclass
 
 import absl
 import numpy as np
@@ -266,6 +267,12 @@ class TpchLoader:
 
 
 class TpchWorkloadLoader(BaseWorkloadLoader):
+    @dataclass(frozen=True)
+    class QuerySpec:
+        query_number: int
+        release_time: EventTime
+        deadline: Optional[EventTime]
+
     """Construct a TPC-H query workload
 
     Args:
@@ -290,55 +297,71 @@ class TpchWorkloadLoader(BaseWorkloadLoader):
         # Instantiate tpch loader
         self._tpch_loader = TpchLoader(path=flags.tpch_query_dag_spec, flags=flags)
 
-        # Intialize [(query_num, release_time)]
-        self._query_nums_and_release_times = []
-        if len(flags.override_num_invocations) > 0:
-            partitioning = [
-                [int(query_num) for query_num in bucket.split(",")]
-                for bucket in flags.tpch_query_partitioning.split(":")
-            ]
+        if flags.tpch_workload_spec:
+            with open(flags.tpch_workload_spec, 'r') as f:
+                data = json.load(f)
 
-            # One each for easy, medium, and hard
-            assert len(flags.override_num_invocations) == len(partitioning)
-            assert len(flags.override_poisson_arrival_rates) == len(
-                flags.override_num_invocations
-            )
+            # TODO: update flags from data["metadata"]
 
-            # only works with poisson distribution
-            assert flags.override_release_policy == "poisson"
-
-            for i, part in enumerate(partitioning):
-                release_policy = self.__make_release_policy(
-                    policy_type=flags.override_release_policy,
-                    arrival_rate=float(flags.override_poisson_arrival_rates[i]),
-                    num_invocations=int(flags.override_num_invocations[i]),
+            self._query_specs = [
+                TpchWorkloadLoader.QuerySpec(
+                    r["query_number"],
+                    EventTime(r["release_time"], EventTime.Unit.US),
+                    EventTime(r["deadline"], EventTime.Unit.US),
                 )
-                release_times = release_policy.get_release_times(
-                    completion_time=EventTime(
-                        self._flags.loop_timeout, EventTime.Unit.US
+                for r in data["workload"]
+            ]
+        else:
+            # Intialize [(query_num, release_time)]
+            query_specs = []
+            if len(flags.override_num_invocations) > 0:
+                partitioning = [
+                    [int(query_num) for query_num in bucket.split(",")]
+                    for bucket in flags.tpch_query_partitioning.split(":")
+                ]
+
+                # One each for easy, medium, and hard
+                assert len(flags.override_num_invocations) == len(partitioning)
+                assert len(flags.override_poisson_arrival_rates) == len(
+                    flags.override_num_invocations
+                )
+
+                # only works with poisson distribution
+                assert flags.override_release_policy == "poisson"
+
+                for i, part in enumerate(partitioning):
+                    release_policy = self.__make_release_policy(
+                        policy_type=flags.override_release_policy,
+                        arrival_rate=float(flags.override_poisson_arrival_rates[i]),
+                        num_invocations=int(flags.override_num_invocations[i]),
                     )
+                    release_times = release_policy.get_release_times(
+                        completion_time=EventTime(
+                            self._flags.loop_timeout, EventTime.Unit.US
+                        )
+                    )
+                    query_nums = [
+                        self._rng.choice(part)
+                        for _ in range(int(flags.override_num_invocations[i]))
+                    ]
+                    query_specs.extend(list(zip(query_nums, release_times)))
+
+                query_specs.sort(key=lambda x: x.release_time)
+            else:
+                release_policy = self.__make_release_policy()
+                release_times = release_policy.get_release_times(
+                    completion_time=EventTime(self._flags.loop_timeout, EventTime.Unit.US)
                 )
                 query_nums = [
-                    self._rng.choice(part)
-                    for _ in range(int(flags.override_num_invocations[i]))
+                    self._rng.randint(1, self._tpch_loader.num_queries)
+                    for _ in range(self._flags.override_num_invocation)
                 ]
-                self._query_nums_and_release_times.extend(
-                    list(zip(query_nums, release_times))
-                )
+                query_specs.extend(list(zip(query_nums, release_times)))
 
-            self._query_nums_and_release_times.sort(key=lambda x: x[1])
-        else:
-            release_policy = self.__make_release_policy()
-            release_times = release_policy.get_release_times(
-                completion_time=EventTime(self._flags.loop_timeout, EventTime.Unit.US)
-            )
-            query_nums = [
-                self._rng.randint(1, self._tpch_loader.num_queries)
-                for _ in range(self._flags.override_num_invocation)
+            self._query_specs = [
+                TpchWorkloadLoader.QuerySpec(qt,rt,None)
+                for qt,rt in query_specs
             ]
-            self._query_nums_and_release_times.extend(
-                list(zip(query_nums, release_times))
-            )
 
         self._current_release_pointer = 0
 
@@ -409,31 +432,33 @@ class TpchWorkloadLoader(BaseWorkloadLoader):
 
         to_release = []
         while (
-            self._current_release_pointer < len(self._query_nums_and_release_times)
-            and self._query_nums_and_release_times[self._current_release_pointer][1]
+            self._current_release_pointer < len(self._query_specs)
+            and self._query_specs[self._current_release_pointer].release_time
             <= current_time + self._workload_update_interval
         ):
             to_release.append(
-                self._query_nums_and_release_times[self._current_release_pointer]
+                self._query_specs[self._current_release_pointer]
             )
             self._current_release_pointer += 1
 
         if (
-            self._current_release_pointer >= len(self._query_nums_and_release_times)
+            self._current_release_pointer >= len(self._query_specs)
             and len(to_release) == 0
         ):
             # Nothing left to release
             return None
 
-        for i, (q, t) in enumerate(to_release):
+        for i, spec in enumerate(to_release):
             job_graph, _ = self._tpch_loader.make_job_graph(
                 id=str(i),
-                query_num=q,
+                query_num=spec.query_number,
             )
             task_graph = job_graph.get_next_task_graph(
-                start_time=t,
+                start_time=spec.release_time,
+                deadline=spec.deadline,
                 _flags=self._flags,
             )
+            assert(task_graph is not None)
             self._workload.add_task_graph(task_graph)
 
         return self._workload
