@@ -41,14 +41,17 @@ class TpchLoader:
     def __init__(
         self,
         path: Path,
-        flags: "absl.flags",
+        flags: Optional["absl.flags"],
     ):
-        self._logger = setup_logging(
-            name=self.__class__.__name__,
-            log_dir=flags.log_dir,
-            log_file=flags.log_file_name,
-            log_level=flags.log_level,
-        )
+        if flags is not None:
+            self._logger = setup_logging(
+                name=self.__class__.__name__,
+                log_dir=flags.log_dir,
+                log_file=flags.log_file_name,
+                log_level=flags.log_level,
+            )
+        else:
+            self._logger = setup_logging(self.__class__.__name__)
         self._flags = flags
 
         # Load the TPC-H DAG structures
@@ -69,7 +72,7 @@ class TpchLoader:
         max_executors_per_job: Optional[int] = None,
         min_task_runtime: Optional[int] = None,
         runtime_unit: EventTime.Unit = EventTime.Unit.US,
-    ) -> Tuple[TaskGraph, Dict[int, int]]:
+    ) -> Tuple[JobGraph, Dict[int, int]]:
         if profile_type is None:
             profile_type = self._flags.tpch_profile_type
         if dataset_size is None:
