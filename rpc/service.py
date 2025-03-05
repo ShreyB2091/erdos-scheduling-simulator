@@ -399,9 +399,13 @@ class Servicer(erdos_scheduler_pb2_grpc.SchedulerServiceServicer):
         if request.name.startswith("TPCH Query"):
             # Parse request name
             query_parts = request.name.split()
+            # By default, let the simulator decide the deadline
+            deadline = None
             match query_parts:
-                case _, _, query_num, index, dataset_size, max_executors_per_job:
+                case _, _, query_num, deadline, dataset_size, max_executors_per_job:
                     query_num = int(query_num)
+                    deadline = int(deadline)
+                    index = str(len(self._registered_applications))
                     dataset_size = int(dataset_size)
                     max_executors_per_job = int(max_executors_per_job)
                 case _, _, query_num, dataset_size, max_executors_per_job:
@@ -462,6 +466,7 @@ class Servicer(erdos_scheduler_pb2_grpc.SchedulerServiceServicer):
             def gen(release_time):
                 task_graph = job_graph.get_next_task_graph(
                     start_time=release_time,
+                    deadline=deadline,
                     _flags=FLAGS,
                 )
                 return task_graph, stage_id_mapping
