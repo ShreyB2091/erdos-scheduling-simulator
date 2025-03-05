@@ -185,7 +185,7 @@ query_generators = [
 print(json.dumps({
     "dataset_size": args.dataset_size,
     "max_cores": args.max_cores,
-    "queries": list(islice(
+    "workload": list(islice(
         merge(*query_generators, key=lambda q: q["release_time"]),
         args.num_queries,
     )),

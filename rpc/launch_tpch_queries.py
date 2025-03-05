@@ -121,7 +121,7 @@ def main():
         inter_arrival_times.append(release_times[i + 1].time - release_times[i].time)
     for i, inter_arrival_time in enumerate(inter_arrival_times):
         time.sleep(inter_arrival_time)
-        query = workload_spec.queries[i]
+        query = workload_spec.workload[i]
         ps.append(launch_query(
             query_number=query.query_number,
             deadline=query.deadline,

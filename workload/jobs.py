@@ -900,11 +900,14 @@ class JobGraph(Graph[Job]):
         else:
             weighted_task_graph_length = self.__get_completion_time()
 
-        # NOTE: This is the second time the deadline is being set, based on a second 
-        # invocation of fuzz.
-        task_graph_deadline = release_time + weighted_task_graph_length.fuzz(
-            deadline_variance, deadline_bounds, rng=deadline_rng
-        )
+        # NOTE: This is the second time the deadline is being set
+        if deadline is not None:
+            task_graph_deadline = deadline
+        else:
+            task_graph_deadline = release_time + weighted_task_graph_length.fuzz(
+                deadline_variance, deadline_bounds, rng=deadline_rng
+            )
+
         if _flags and _flags.decompose_deadlines:
             stages_info = {}
             stages = set([])
