@@ -809,7 +809,7 @@ class JobGraph(Graph[Job]):
             task_logger = setup_logging(name="Task")
 
         if deadline is not None:
-            task_deadline = deadline
+            task_deadline = release_time + deadline
         else:
             # Create an RNG to be used when fuzzing deadlines, seeded by
             # the TaskGraph name and the global random seed, if provided.
@@ -902,7 +902,7 @@ class JobGraph(Graph[Job]):
 
         # NOTE: This is the second time the deadline is being set
         if deadline is not None:
-            task_graph_deadline = deadline
+            task_graph_deadline = release_time + deadline
         else:
             task_graph_deadline = release_time + weighted_task_graph_length.fuzz(
                 deadline_variance, deadline_bounds, rng=deadline_rng
