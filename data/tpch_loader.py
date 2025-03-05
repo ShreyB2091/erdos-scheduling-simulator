@@ -301,8 +301,6 @@ class TpchWorkloadLoader(BaseWorkloadLoader):
             with open(flags.tpch_workload_spec, 'r') as f:
                 data = json.load(f)
 
-            # TODO: update flags from data["metadata"]
-
             self._query_specs = [
                 TpchWorkloadLoader.QuerySpec(
                     r["query_number"],
