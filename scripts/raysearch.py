@@ -128,7 +128,7 @@ def parse_slo(result: Path):
 def run_and_analyze(label: str, output_dir: Path, flags: list):
     sim = run_simulator(label, output_dir, flags)
     analysis = run_analysis(label, sim)
-    return parse_slo(sim / f"{label}.csv"), parse_analysis(analysis / "stdout")
+    return parse_slo(sim / f"{label}.csv"), parse_analysis(analysis / f"{label}.stdout")
 
 
 def run_edf(output_dir: Path, flags: list):
@@ -272,6 +272,8 @@ def objective(config, experiment_dir):
         "--tpch_query_dag_spec=profiles/workload/tpch/queries.yaml",
         "--worker_profile_path=profiles/workers/tpch_cluster.yaml",
         "--random_seed=1234",
+        "--slo_ramp_up_clip", 10,
+        "--slo_ramp_down_clip", 10,
         "--tpch_workload_spec", workload_spec,
         "--tpch_dataset_size", config["tpch_dataset_size"],
         "--tpch_max_executors_per_job", config["tpch_max_executors_per_job"],
@@ -281,7 +283,7 @@ def objective(config, experiment_dir):
     dsched_slo, dsched_analysis = run_dsched(output_dir, sim_flags)
 
     metric = (
-        150 * math.log(dsched_slo / 0.8) # penalize for dsched going below 80%
+        (150 * math.log(dsched_slo / 0.8) if dsched_slo < 0.8 else 0) # penalize for dsched going below 80%
         + 2 * (dsched_slo - edf_slo)  # maximize slo difference, weighted by 2
         + (edf_analysis["avg"] - edf_analysis["eff"])  # maximize util difference in edf
         + dsched_analysis["eff"] # maximize effective util in dsched
