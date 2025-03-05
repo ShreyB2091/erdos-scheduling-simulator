@@ -23,9 +23,20 @@ from ray.tune import Trainable
 from ray.train import RunConfig
 
 
-def run_simulator(label: str, output_dir: Path, flags: list):
-    output_dir.mkdir(parents=True, exist_ok=True)
+def generate_workload(output_dir: Path, flags: list[str]) -> Path:
+    spec_file = output_dir / "workload.json"
+    with open(spec_file, "w") as f:
+        cmd = [
+            "python3",
+            "-m",
+            "scripts.generate_workload_spec",
+            *flags,
+        ]
+        subprocess.Popen(cmd, stdout=f).wait()
+    return spec_file
 
+
+def run_simulator(label: str, output_dir: Path, flags: list):
     def outp(ext):
         return (output_dir / f"{label}.{ext}").resolve()
 
@@ -154,10 +165,6 @@ def generate_search_space():
         "min_deadline_variance": 10,
         "max_deadline_variance": 25,
 
-        "easy_invoc_weight": tune.uniform(0, 1),
-        "med_invoc_weight": tune.uniform(0, 1),
-        "hard_invoc_weight": tune.uniform(0, 1),
-
         "easy_ar_weight": tune.uniform(0, 1),
         "med_ar_weight": tune.uniform(0, 1),
         "hard_ar_weight": tune.uniform(0, 1),
@@ -176,7 +183,27 @@ def objective(config, experiment_dir):
     output_dir = experiment_dir / str(train.get_context().get_trial_id())
     output_dir.mkdir(parents=True)
 
-    base_flags = [
+    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
+    arrival_rate = config["arrival_rate"]
+    easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
+    med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
+    hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
+
+    workload_spec_flags = [
+        "--partitioning-scheme", config["partitioning"],
+        "--num-queries", config["invocations"],
+        "--arrival-rates", easy_ar, med_ar, hard_ar,
+        "--dataset-size", config["tpch_dataset_size"],
+        "--max-cores", config["tpch_max_executors_per_job"],
+        "--deadline-variance", config["min_deadline_variance"], config["max_deadline_variance"],
+        "--min-task-runtime", 12,
+        "--tpch-query-dag-spec", "profiles/workload/tpch/queries.yaml",
+        "--profile-type", "Cloudlab",
+        "--random-seed", 1234,
+    ]
+    workload_spec = generate_workload(output_dir, workload_spec_flags)
+
+    sim_flags = [
         "--runtime_variance=0",
         "--tpch_min_task_runtime=12",
         "--execution_mode=replay",
@@ -184,45 +211,13 @@ def objective(config, experiment_dir):
         "--tpch_query_dag_spec=profiles/workload/tpch/queries.yaml",
         "--worker_profile_path=profiles/workers/tpch_cluster.yaml",
         "--random_seed=1234",
+        "--tpch_workload_spec", workload_spec,
+        "--tpch_dataset_size", config["tpch_dataset_size"],
+        "--tpch_max_executors_per_job", config["tpch_max_executors_per_job"],
     ]
 
-    arrival_rate = config["arrival_rate"]
-    num_invocations = config["invocations"]
-
-    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
-    easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
-    med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
-    hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
-
-    total_invoc_weight = config["easy_invoc_weight"] + config["med_invoc_weight"] + config["hard_invoc_weight"]
-    easy_invoc = int(num_invocations * config["easy_invoc_weight"] / total_invoc_weight)
-    med_invoc = int(num_invocations * config["med_invoc_weight"] / total_invoc_weight)
-    hard_invoc = int(num_invocations * config["hard_invoc_weight"] / total_invoc_weight)
-
-    if easy_invoc + med_invoc + hard_invoc < num_invocations:
-        hard_invoc += num_invocations - (easy_invoc + med_invoc + hard_invoc)
-
-    config_specific_flags = [
-        f'--min_deadline_variance={config["min_deadline_variance"]}',
-        f'--max_deadline_variance={config["max_deadline_variance"]}',
-        "--override_release_policy=poisson",
-
-        f'--override_poisson_arrival_rates={easy_ar},{med_ar},{hard_ar}',
-        f'--override_num_invocations={easy_invoc},{med_invoc},{hard_invoc}',
-
-        # f'--override_poisson_arrival_rate={config["override_poisson_arrival_rate"]}',
-        # f'--override_num_invocation={config["override_num_invocation"]}',
-
-        f'--tpch_dataset_size={config["tpch_dataset_size"]}',
-        f'--tpch_max_executors_per_job={config["tpch_max_executors_per_job"]}',
-
-        f'--tpch_query_partitioning={config["partitioning"]}',
-    ]
-
-    flags = [*base_flags, *config_specific_flags]
-
-    edf_slo, edf_analysis = run_edf(output_dir, flags)
-    dsched_slo, dsched_analysis = run_dsched(output_dir, flags)
+    edf_slo, edf_analysis = run_edf(output_dir, sim_flags)
+    dsched_slo, dsched_analysis = run_dsched(output_dir, sim_flags)
 
     metric = (
         150 * math.log(dsched_slo / 0.8) # penalize for dsched going below 80%
