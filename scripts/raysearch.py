@@ -180,8 +180,8 @@ def generate_search_space():
         "arrival_rate": tune.uniform(0.022, 0.055),
         "invocations": 220,
 
-        "tpch_max_executors_per_job": tune.choice(50, 75, 100, 200),
-        "tpch_dataset_size": tune.choice(100, 250),
+        "tpch_max_executors_per_job": tune.choice((75, 100, 200)),
+        "tpch_dataset_size": tune.choice((100, 250)),
     }
 
 
@@ -315,7 +315,7 @@ def main():
 
     ray.init(num_cpus=108)
 
-    experiment_dir = (Path("ray") / exp_name).resolve()
+    experiment_dir = (Path("../expts/ray") / exp_name).resolve()
     if experiment_dir.exists():
         # clear up previous results
         shutil.rmtree(experiment_dir)
