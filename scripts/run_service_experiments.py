@@ -252,7 +252,7 @@ def main():
                 "--workload-spec", f"../tpch-plot/mixed-{r}/EDF/workload.json",
             ],
         )
-        for r in (0.033, 0.035, 0.038, 0.04)
+        for r in (0.02, 0.03, 0.045, 0.05)
         for sched in ("edf", "dsched")
     ]
 
