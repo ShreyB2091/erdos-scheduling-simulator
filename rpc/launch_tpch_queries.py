@@ -25,7 +25,7 @@ def map_dataset_to_deadline(dataset_size):
 
 
 def launch_query(query_number, deadline, dataset_size, max_cores, args):
-    spark_deadline = map_dataset_to_deadline(args.dataset_size)
+    spark_deadline = map_dataset_to_deadline(dataset_size)
 
     cmd = [
         f"{args.spark_mirror_path.resolve()}/bin/spark-submit",
@@ -112,29 +112,29 @@ def main():
     with open(args.workload_spec) as f:
         workload_spec = json.load(f)
 
-    release_times = [q["release_time"] for q in workload_spec.queries]
+    release_times = [q["release_time"] for q in workload_spec["workload"]]
 
     # Launch queries
     ps = []
-    inter_arrival_times = [release_times[0].time]
+    inter_arrival_times = [release_times[0]]
     for i in range(len(release_times) - 1):
-        inter_arrival_times.append(release_times[i + 1].time - release_times[i].time)
+        inter_arrival_times.append(release_times[i + 1] - release_times[i])
     for i, inter_arrival_time in enumerate(inter_arrival_times):
         time.sleep(inter_arrival_time)
-        query = workload_spec.workload[i]
+        query = workload_spec["workload"][i]
         ps.append(launch_query(
-            query_number=query.query_number,
-            deadline=query.deadline,
-            dataset_size=workload_spec.dataset_size,
-            max_cores=workload_spec.max_cores,
-            args,
+            query_number=query["query_number"],
+            deadline=query["deadline"],
+            dataset_size=workload_spec["dataset_size"],
+            max_cores=workload_spec["max_cores"],
+            args=args,
         ))
         print(
             f"({i+1}/{len(release_times)})",
             "Current time: ",
             time.strftime("%Y-%m-%d %H:%M:%S"),
             " launching query: ",
-            query.query_number,
+            query["query_number"],
         )
 
     for p in ps:
