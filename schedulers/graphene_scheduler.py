@@ -73,10 +73,15 @@ class GrapheneScheduler(TetriSchedScheduler):
             self._log_dir,
         )
         self._min_makespan_scheduler_configuration = tetrisched.SchedulerConfig()
-        self._min_makespan_scheduler_configuration.optimize = (
-            self._enable_optimization_passes
-        )
+
+        # This is stale code. Optimization passes are handled in TetrischedScheduler init
+        #
+        # self._min_makespan_scheduler_configuration.optimize = (
+        #     # self._enable_optimization_passes
+        #     True,
+        # )
         # 5 seconds interrupt by default for offline stage.
+
         self._min_makespan_scheduler_configuration.totalSolverTimeMs = 5000
 
         # Keep a hash set of the TaskGraph names that have been transformed by the
