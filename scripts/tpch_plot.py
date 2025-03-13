@@ -44,15 +44,15 @@ sched_specs = {
             ],
         ),
 
-        SchedSpec(
-            name="EDF",
-            flags=[
-                "--scheduler=EDF",
-                "--scheduler_runtime=0",
-                "--enforce_deadlines",
-                "--scheduler_plan_ahead_no_consideration_gap=1",
-            ],
-        ),
+        # SchedSpec(
+        #     name="EDF",
+        #     flags=[
+        #         "--scheduler=EDF",
+        #         "--scheduler_runtime=0",
+        #         "--enforce_deadlines",
+        #         "--scheduler_plan_ahead_no_consideration_gap=1",
+        #     ],
+        # ),
     ]
 }
 
@@ -75,7 +75,7 @@ def main():
     exp_dir = Path("tpch_plot")
     if not exp_dir.exists(): exp_dir.mkdir(parents=True)
 
-    num_invocations_total = 220
+    num_invocations_total = 100
     num_invocations_weights = (
         0.0004249565543,
         0.752791656,
@@ -89,7 +89,7 @@ def main():
         0.8929019532,
         0.6319769419,
     )
-    num_interp = 10
+    num_interp = 1
     arrival_rates = [
         partition_num(float(ar), ar_weights)
         for ar in np.linspace(ar_lo, ar_hi, num_interp)
@@ -135,14 +135,15 @@ def main():
     
     def task(config):
         try:
-            analysis = run_and_analyze(*config["args"])
+            slo, util = run_and_analyze(*config["args"])
             return {
                 **config,
-                "slo": analysis[0],
-                **analysis[1],
+                "slo": slo,
+                **util,
             }
-        except:
+        except Exception as e:
             print(f"Failed to run {config}")
+            print("Exception:", e)
             return config
 
     num_workers = 20
