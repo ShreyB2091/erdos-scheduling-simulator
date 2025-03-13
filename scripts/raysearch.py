@@ -23,14 +23,14 @@ from ray.tune import Trainable
 from ray.train import RunConfig
 
 
-def generate_workload(output_dir: Path, flags: list) -> Path:
+def generate_workload(output_dir: Path, flags: list, label="workload") -> Path:
     # Not used by ray, but useful to reference during analysis
-    conf_file = output_dir / "workload.conf"
+    conf_file = output_dir / f"{label}-workload-spec.conf"
     with open(conf_file, "w") as f:
         f.write("\n".join(str(flag) for flag in flags))
         f.write("\n")
 
-    spec_file = output_dir / "workload.json"
+    spec_file = output_dir / f"{label}.json"
     with open(spec_file, "w") as f:
         cmd = [
             "python3",
@@ -43,7 +43,7 @@ def generate_workload(output_dir: Path, flags: list) -> Path:
 
 
 def run_simulator(label: str, output_dir: Path, flags: list):
-    output_dir.mkdir()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     def outp(ext):
         return (output_dir / f"{label}.{ext}").resolve()
@@ -203,17 +203,7 @@ def generate_partition_string(difficulty_dict):
     return f"{easy_str}:{medium_str}:{hard_str}"
 
 
-def objective(config, experiment_dir):
-    output_dir = experiment_dir / str(train.get_context().get_trial_id())
-    output_dir.mkdir(parents=True)
-
-    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
-    arrival_rate = config["arrival_rate"]
-    easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
-    med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
-    hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
-
-    query_difficulty_map = {
+query_difficulty_map = {
         (100, 75): {
             'easy': [11, 13, 14, 15, 19, 20, 22],
             'medium': [1, 2, 4, 6, 10, 12, 16, 17, 18],
@@ -245,6 +235,17 @@ def objective(config, experiment_dir):
             'hard': [3, 5, 8, 9, 17, 18, 21]
         }
     }
+
+
+def objective(config, experiment_dir):
+    output_dir = experiment_dir / str(train.get_context().get_trial_id())
+    output_dir.mkdir(parents=True)
+
+    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
+    arrival_rate = config["arrival_rate"]
+    easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
+    med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
+    hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
 
     partitioning = generate_partition_string(query_difficulty_map[
         (config["tpch_dataset_size"], config["tpch_max_executors_per_job"])
