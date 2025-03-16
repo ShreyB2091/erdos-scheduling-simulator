@@ -1,9 +1,7 @@
-import itertools
 import concurrent.futures
 from pathlib import Path
 
-from experiments.simulator_experiments import run_and_analyze
-from experiments.spec import Experiment, sched_specs
+from experiments import Experiment, sched_specs, run_simulator_experiment
 
 import pandas as pd
 from tqdm import tqdm
@@ -33,7 +31,7 @@ def main():
     experiments = {
         f"mixed-{ar}": Experiment(
             deadline_variance=(10,25),
-            ar_weights=(0.1346377367, 0.1507476164, 0.3153456339),
+            ar_weights=[0.1346377367, 0.1507476164, 0.3153456339],
             num_invocations=220,
             max_cores=100,
             dataset_size=100,
@@ -46,10 +44,10 @@ def main():
         for exp in experiments
     ]
 
-    num_workers = 1
+    num_workers = 64
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         results = list(tqdm(executor.map(
-            run_and_analyze, *zip(*trials)
+            run_simulator_experiment, *zip(*trials)
         ), total=len(trials)))
 
     df = pd.DataFrame(results)

@@ -1,11 +1,12 @@
 from pathlib import Path
 import subprocess
 import re
-from typing import Optional, Callable
 
-from . import spec
+from .experiment_spec import Experiment
+from .scheduler_spec import SchedSpec
 
-def generate_workload(output_dir: Path, expt: spec.Experiment) -> Path:
+
+def generate_workload(output_dir: Path, expt: Experiment) -> Path:
     # Dump the workload spec config.
     flags = expt.workload_spec_flags()
     conf_file = output_dir / "workload.conf"
@@ -29,28 +30,28 @@ def generate_workload(output_dir: Path, expt: spec.Experiment) -> Path:
 def run_simulator(
         output_dir: Path,
         workload_spec: Path,
-        sched: spec.SchedSpec,
-        expt: spec.Experiment,
-):
-    output_dir.mkdir(exist_ok=True)
+        sched: SchedSpec,
+        expt: Experiment,
+) -> dict[str, Path]:
+    output_files = {
+        ext: (output_dir / f"simulator.{ext}")
+        for ext in ("log", "csv", "conf", "stdout", "stderr")
+    }
 
-    def outp(ext):
-        return (output_dir / f"{sched.name}.{ext}").resolve()
-
-    log_file = outp("log")
-    csv_file = outp("csv")
+    log_file = output_files["log"]
+    csv_file = output_files["csv"]
     flags = expt.base_sim_flags() + sched.flags + [
         "--tpch_workload_spec", str(workload_spec),
         "--log", str(log_file),
         "--log_level", "debug",
         "--csv", str(csv_file),
     ]
-    conf_file = outp("conf")
+    conf_file = output_files["conf"]
     with open(conf_file, "w") as f:
         f.write("\n".join(flags))
         f.write("\n")
 
-    stdout, stderr = outp("stdout"), outp("stderr")
+    stdout, stderr = output_files["stdout"], output_files["stderr"]
     with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
         cmd = [
             "python3",
@@ -60,60 +61,56 @@ def run_simulator(
         ]
         subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr).wait()
 
-    return output_dir
+    return output_files
 
 
-def run_analysis(results_dir: Path, sched: spec.SchedSpec):
-    output_dir = results_dir / "analysis"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
+def analyze(output_dir: Path, sim_output: dict[str, Path]) -> dict[str, float]:
     def outp(ext):
-        return (output_dir / f"{sched.name}.{ext}").resolve()
+        return (output_dir / f"analyze.{ext}")
 
     stdout, stderr = outp("stdout"), outp("stderr")
     with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
         cmd = [
             "python3",
             "analyze.py",
-            f"--csv_files={results_dir}/{sched.name}.csv",
-            f"--conf_files={results_dir}/{sched.name}.conf",
+            f"--csv_files={sim_output['csv']}",
+            f"--conf_files={sim_output['conf']}",
             f"--output_dir={output_dir}",
             "--goodresource_utilization",
         ]
         subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr).wait()
 
-    return output_dir
-
-
-def parse_analysis(result: Path) -> dict[str, float]:
-    with open(result, "r") as f:
+    with open(stdout) as f:
         data = f.read()
-    eff = float(
-        re.search(r"Average Good Utilization:\s+([-+]?\d*\.\d+|\d+)", data).group(1)
-    )
-    avg = float(re.search(r"Average Utilization:\s+([-+]?\d*\.\d+|\d+)", data).group(1))
-    return {"avg": avg / 100, "eff": eff / 100}
+
+    def parse_output(tag):
+        return float(re.search(tag + r":\s+([-+]?\d*\.\d+|\d+)", data).group(1)) / 100
+
+    return {
+        "avg": parse_output("Average Utilization"),
+        "eff": parse_output("Average Good Utilization"),
+    }
 
 
-def parse_slo(result: Path) -> float:
-    with open(result) as f:
+def parse_slo(sim_csv: Path) -> float:
+    with open(sim_csv) as f:
         for line in reversed(f.readlines()):
             parts = line.split(",")
             if len(parts) >= 1 and parts[1] == "LOG_STATS":
                 return float(parts[8])
-    assert False                # should throw an exception instead
+    raise RuntimeError("Could not find a LOG_STATS line in the simulator CSV")
 
 
-def run_and_analyze(
+def run_simulator_experiment(
         output_dir: Path,
-        expt: spec.Experiment,
-        sched: spec.SchedSpec,
+        expt: Experiment,
+        sched: SchedSpec,
 ) -> dict[str, float]:
     output_dir.mkdir(parents=True, exist_ok=True)
     workload_spec = generate_workload(output_dir, expt)
-    sim = run_simulator(output_dir, workload_spec, sched, expt)
-    analysis = run_analysis(sim, sched)
+    sim_output = run_simulator(output_dir, workload_spec, sched, expt)
+    analysis = analyze(output_dir, sim_output)
     return {
-        "slo": parse_slo(sim / f"{sched.name}.csv"),
-        **parse_analysis(analysis / f"{sched.name}.stdout"),
+        "slo": parse_slo(sim_output["csv"]),
+        **analysis,
     }
