@@ -117,18 +117,3 @@ def run_and_analyze(
         "slo": parse_slo(sim / f"{sched.name}.csv"),
         **parse_analysis(analysis / f"{sched.name}.stdout"),
     }
-
-
-# def make_experiment_tasks(
-#         output_dir: Path,
-#         expt: spec.Experiment,
-# ) -> list[Callable[[], dict[str, float]]]:
-#     """Generate callables that run an experiment on every scheduler."""
-
-#     tasks = []
-#     for name in spec.sched_specs:
-#         def task():
-#             sched = spec.sched_specs[name]
-#             return run_and_analyze(output_dir / name, sched, expt)
-#         tasks.append(task)
-#     return tasks
