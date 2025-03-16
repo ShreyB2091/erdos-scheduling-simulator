@@ -80,15 +80,18 @@ def run_all(
             time.sleep(3)
             with run_spark(spark_mirror, properties_file):
                 time.sleep(5)
+
                 logger.info("Launching queries...")
-                subprocess.run([
-                    "python3", "-u", "-m", "rpc.launch_tpch_queries",
-                    "--workload-spec", workload_spec,
-                    "--spark-master-ip", "localhost",
-                    "--spark-mirror-path", spark_mirror,
-                    "--tpch-spark-path", "rpc/tpch-spark",
-                    "--spark-eventlog-dir", output_dir / "spark-eventlog",
-                ])
+                with open(output_dir / "launcher.stdout", "w") as l_stdout, open(output_dir / "launcher.stderr", "w") as l_stderr:
+                    subprocess.run([
+                        "python3", "-u", "-m", "rpc.launch_tpch_queries",
+                        "--workload-spec", workload_spec,
+                        "--spark-master-ip", "localhost",
+                        "--spark-mirror-path", spark_mirror,
+                        "--tpch-spark-path", "rpc/tpch-spark",
+                        "--spark-eventlog-dir", output_dir / "spark-eventlog",
+                    ], stdout=l_stdout, stderr=l_stderr)
+
                 logger.info("All queries launched.  Waiting for service to end...")
                 service.wait()
                 logger.info("Service complete.")
