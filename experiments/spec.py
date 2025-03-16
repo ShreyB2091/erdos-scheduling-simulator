@@ -148,7 +148,7 @@ sched_specs = {
         SchedSpec(
             name="FIFO",
             flags=[
-                "--scheduler=EDF",
+                "--scheduler=FIFO",
                 "--scheduler_runtime=0",
                 "--enforce_deadlines",
                 "--scheduler_plan_ahead_no_consideration_gap=1",
