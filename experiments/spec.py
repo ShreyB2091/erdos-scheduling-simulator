@@ -153,6 +153,29 @@ sched_specs = {
                 "--enforce_deadlines",
                 "--scheduler_plan_ahead_no_consideration_gap=1",
             ]
-        )
+        ),
+        SchedSpec(
+            name="TetriSched_0",
+            flags=[
+                "--scheduler=TetriSched",
+                "--enforce_deadlines",
+                "--scheduler_time_discretization=1",
+                "--retract_schedules",
+                "--scheduler_plan_ahead=0",
+                "--opt_passes=CRITICAL_PATH_PASS",
+                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+            ],
+        ),
+        SchedSpec(
+            name="Graphene_0",
+            flags=[
+                "--scheduler=Graphene",
+                "--scheduler_time_discretization=1",
+                "--retract_schedules",
+                "--scheduler_plan_ahead=0",
+                "--opt_passes=CRITICAL_PATH_PASS",
+                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+            ],
+        ),
     ]
 }
