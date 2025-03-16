@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import logging
 import time
 import datetime
+import shutil
 
 from .experiment_spec import Experiment
 from .scheduler_spec import SchedSpec
@@ -86,7 +87,8 @@ def run_experiment(
         run: Callable[[Path, Path, Experiment, SchedSpec], ExpOutputs],
 ) -> dict[str, float]:
     logger.info(f"Running experiment in {output_dir}.")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(output_dir, ignore_errors=True)
+    output_dir.mkdir(parents=True)
 
     start_time = time.time()
 
