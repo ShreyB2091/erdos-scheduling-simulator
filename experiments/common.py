@@ -3,9 +3,14 @@ from typing import Callable
 from pathlib import Path
 import re
 from dataclasses import dataclass
+import logging
+import time
+import datetime
 
 from .experiment_spec import Experiment
 from .scheduler_spec import SchedSpec
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -15,6 +20,7 @@ class ExpOutputs:
 
 
 def generate_workload(output_dir: Path, expt: Experiment) -> Path:
+    logger.info("Generating workload spec.")
     # Dump the workload spec config.
     flags = expt.workload_spec_flags()
     conf_file = output_dir / "workload.conf"
@@ -36,6 +42,7 @@ def generate_workload(output_dir: Path, expt: Experiment) -> Path:
 
 
 def analyze(output_dir: Path, exp_outputs: ExpOutputs) -> dict[str, float]:
+    logger.info("Analyzing simulator output.")
     def outp(ext):
         return (output_dir / f"analyze.{ext}")
 
@@ -78,10 +85,18 @@ def run_experiment(
         sched: SchedSpec,
         run: Callable[[Path, Path, Experiment, SchedSpec], ExpOutputs],
 ) -> dict[str, float]:
+    logger.info(f"Running experiment in {output_dir}.")
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    start_time = time.time()
+
     workload_spec = generate_workload(output_dir, expt)
     exp_outputs = run(output_dir, workload_spec, expt, sched)
     analysis = analyze(output_dir, exp_outputs)
+
+    elapsed_time = datetime.timedelta(seconds=time.time() - start_time)
+    logger.info(f"Experiment complete.  Time elapsed: {elapsed_time}")
+
     return {
         "slo": parse_slo(exp_outputs.csv),
         **analysis,

@@ -1,9 +1,12 @@
 from pathlib import Path
 import subprocess
+import logging
 
 from .experiment_spec import Experiment
 from .scheduler_spec import SchedSpec
 from .common import run_experiment, ExpOutputs
+
+logger = logging.getLogger(__name__)
 
 
 def run_simulator(
@@ -12,6 +15,8 @@ def run_simulator(
         expt: Experiment,
         sched: SchedSpec,
 ) -> ExpOutputs:
+    logger.info("Running simulator.")
+
     def outp(ext: str) -> Path:
         return output_dir / f"simulator.{ext}"
 

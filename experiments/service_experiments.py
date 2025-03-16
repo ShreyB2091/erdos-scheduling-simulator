@@ -4,14 +4,18 @@ import subprocess
 import time
 from functools import partial
 from typing import TextIO
+import logging
 
 from .experiment_spec import Experiment
 from .scheduler_spec import SchedSpec
 from .common import run_experiment, ExpOutputs
 
+logger = logging.getLogger(__name__)
+
 
 @contextmanager
 def run_service(conf_file: Path, stdout: TextIO, stderr: TextIO):
+    logger.info("Starting spark service.")
     service = subprocess.Popen([
         "python3", "-m", "rpc.service",
         "--flagfile", conf_file,
@@ -19,17 +23,20 @@ def run_service(conf_file: Path, stdout: TextIO, stderr: TextIO):
     try:
         yield service
     finally:
+        logger.info("Stopping spark service")
         service.terminate()
 
 
 @contextmanager
 def run_spark(spark_mirror: Path, properties_file: Path):
+    logger.info("Starting spark master.")
     subprocess.run([
         spark_mirror / "sbin" / "start-master.sh",
         "--host", "localhost",
         "--properties-file", properties_file,
     ])
     try:
+        logger.info("Starting spark worker.")
         subprocess.run([
             spark_mirror / "sbin" / "start-worker.sh",
             "spark://localhost:7077",
@@ -38,8 +45,10 @@ def run_spark(spark_mirror: Path, properties_file: Path):
         try:
             yield
         finally:
+            logger.info("Stopping spark worker.")
             subprocess.run(spark_mirror / "sbin" / "stop-worker.sh")
     finally:
+        logger.info("Stopping spark master.")
         subprocess.run(spark_mirror / "sbin" / "stop-master.sh")
 
 
@@ -71,7 +80,7 @@ def run_all(
             time.sleep(3)
             with run_spark(spark_mirror, properties_file):
                 time.sleep(5)
-                # Now, launch the queries
+                logger.info("Launching queries...")
                 subprocess.run([
                     "python3", "-u", "-m", "rpc.launch_tpch_queries",
                     "--workload-spec", workload_spec,
@@ -80,8 +89,9 @@ def run_all(
                     "--tpch-spark-path", "rpc/tpch-spark",
                     "--spark-eventlog-dir", output_dir / "spark-eventlog",
                 ])
-                # Wait for the service run to end
+                logger.info("All queries launched.  Waiting for service to end...")
                 service.wait()
+                logger.info("Service complete.")
                 return ExpOutputs(csv=csv_file, conf=conf_file)
 
 
