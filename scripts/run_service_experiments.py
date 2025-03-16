@@ -7,7 +7,7 @@ import logging
 from experiments import Experiment, sched_specs, run_service_experiment
 
 def main():
-    logging.basicConfig(format='%(asctime)s %(message)s')
+    logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
