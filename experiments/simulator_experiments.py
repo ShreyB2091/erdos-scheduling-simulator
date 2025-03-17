@@ -43,7 +43,7 @@ def run_simulator(
         ]
         subprocess.run(cmd, stdout=f_stdout, stderr=f_stderr, check=True)
 
-    return ExpOutputs(csv=outp("csv"), conf=outp("conf"))
+    return ExpOutputs(csv=outp("csv"), conf=outp("conf"), do_analysis=True)
 
 
 def run_simulator_experiment(

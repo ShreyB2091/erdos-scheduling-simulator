@@ -95,7 +95,7 @@ def run_all(
                 logger.info("All queries launched.  Waiting for service to end...")
                 service.wait()
                 logger.info("Service complete.")
-                return ExpOutputs(csv=csv_file, conf=conf_file)
+                return ExpOutputs(csv=csv_file, conf=conf_file, do_analysis=False)
 
 
 def run_service_experiment(

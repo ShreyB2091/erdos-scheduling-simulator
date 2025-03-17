@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 class ExpOutputs:
     csv: Path
     conf: Path
+    do_analysis: bool
 
 
 def generate_workload(output_dir: Path, expt: Experiment) -> Path:
@@ -94,7 +95,7 @@ def run_experiment(
 
     workload_spec = generate_workload(output_dir, expt)
     exp_outputs = run(output_dir, workload_spec, expt, sched)
-    analysis = analyze(output_dir, exp_outputs)
+    analysis = analyze(output_dir, exp_outputs) if exp_outputs.do_analysis else {}
 
     elapsed_time = datetime.timedelta(seconds=time.time() - start_time)
     logger.info(f"Experiment complete.  Time elapsed: {elapsed_time}")
