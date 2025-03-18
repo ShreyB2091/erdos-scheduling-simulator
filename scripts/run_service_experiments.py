@@ -34,9 +34,11 @@ def main():
 
     runs = list(itertools.product(experiments.items(), schedulers.items()))
 
+    results = {}
+
     for i, ((expt_name, expt), (sched_name, sched)) in enumerate(runs):
-        print(f"=== {expt_name} ({i+1}/{len(runs)}) ===")
-        run_service_experiment(
+        print(f"=== {expt_name}/{sched_name} ({i+1}/{len(runs)}) ===")
+        results[(expt_name, sched_name)] = run_service_experiment(
             output_dir=args.output_dir / expt_name / sched_name,
             expt=expt,
             sched=sched,
@@ -44,6 +46,15 @@ def main():
             properties_file=args.spark_mirror_path / "conf" / "spark-dg-config.conf",
         )
         print("=== done ===\n")
+
+    with open(args.output_dir / "results.csv", "w") as f:
+        for r in (r / 1000 for r in range(10, 55)):
+            if (f"mixed-{r}", "TetriSched_0") in results:
+                graphene_slo = results[(f"mixed-{r}", "Graphene_0")]["slo"]
+                tetrisched_slo = results[(f"mixed-{r}", "TetriSched_0")]["slo"]
+                print(f"{graphene_slo},{tetrisched_slo}", file=f)
+            else:
+                print(file=f)
 
 
 if __name__ == "__main__":
