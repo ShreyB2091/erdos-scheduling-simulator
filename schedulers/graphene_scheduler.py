@@ -73,9 +73,9 @@ class GrapheneScheduler(TetriSchedScheduler):
             self._log_dir,
         )
         self._min_makespan_scheduler_configuration = tetrisched.SchedulerConfig()
-        self._min_makespan_scheduler_configuration.optimize = (
-            self._enable_optimization_passes
-        )
+        # self._min_makespan_scheduler_configuration.optimize = (
+        #     self._enable_optimization_passes
+        # )
         # 5 seconds interrupt by default for offline stage.
         self._min_makespan_scheduler_configuration.totalSolverTimeMs = 5000
 
