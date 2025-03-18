@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
+from pprint import pprint
+
 
 @dataclass
 class SchedSpec:
@@ -22,27 +24,27 @@ class SchedSpec:
 
 sched_specs = {
     spec.name: spec for spec in [
-        SchedSpec(
-            name="DSched",
-            flags=[
-                "--scheduler=TetriSched",
-                "--enforce_deadlines",
-                "--release_taskgraphs",
-                "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-                "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
-                "--retract_schedules",
-                "--scheduler_max_occupancy_threshold=0.999",
-                "--finer_discretization_at_prev_solution",
-                "--scheduler_selective_rescheduling",
-                "--scheduler_reconsideration_period=0.9",
-                "--scheduler_time_discretization=1",
-                "--scheduler_max_time_discretization=5",
-                "--finer_discretization_window=5",
-                "--scheduler_plan_ahead_no_consideration_gap=2",
-                "--drop_skipped_tasks",
-            ],
-        ),
+        # SchedSpec(
+        #     name="DSched",
+        #     flags=[
+        #         "--scheduler=TetriSched",
+        #         "--enforce_deadlines",
+        #         "--release_taskgraphs",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #         "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
+        #         "--retract_schedules",
+        #         "--scheduler_max_occupancy_threshold=0.999",
+        #         "--finer_discretization_at_prev_solution",
+        #         "--scheduler_selective_rescheduling",
+        #         "--scheduler_reconsideration_period=0.9",
+        #         "--scheduler_time_discretization=1",
+        #         "--scheduler_max_time_discretization=5",
+        #         "--finer_discretization_window=5",
+        #         "--scheduler_plan_ahead_no_consideration_gap=2",
+        #         "--drop_skipped_tasks",
+        #     ],
+        # ),
 
         # SchedSpec(
         #     name="EDF",
@@ -54,18 +56,94 @@ sched_specs = {
         # ),
 
         SchedSpec(
-            name="Graphene",
+            name="Graphene_0",
             flags=[
                 "--scheduler=Graphene",
                 "--scheduler_time_discretization=1",
                 "--retract_schedules",
                 "--scheduler_plan_ahead=0",
-                "--scheduler_time_limit=60",
                 "--opt_passes=CRITICAL_PATH_PASS",
                 "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-                "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
             ],
         ),
+
+        # SchedSpec(
+        #     name="Graphene_10",
+        #     flags=[
+        #         "--scheduler=Graphene",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=0",
+        #         "--scheduler_time_limit=10",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
+
+        # SchedSpec(
+        #     name="Graphene_30",
+        #     flags=[
+        #         "--scheduler=Graphene",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=0",
+        #         "--scheduler_time_limit=30",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
+
+        SchedSpec(
+            name="TetriSched_0",
+            flags=[
+                "--scheduler=TetriSched",
+                "--enforce_deadlines",
+                "--scheduler_time_discretization=1",
+                "--retract_schedules",
+                "--scheduler_plan_ahead=0",
+                "--opt_passes=CRITICAL_PATH_PASS",
+                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+            ],
+        ),
+
+        # SchedSpec(
+        #     name="TetriSched_1",
+        #     flags=[
+        #         "--scheduler=TetriSched",
+        #         "--enforce_deadlines",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=1",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
+
+        # SchedSpec(
+        #     name="TetriSched_5",
+        #     flags=[
+        #         "--scheduler=TetriSched",
+        #         "--enforce_deadlines",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=5",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
+
+        # SchedSpec(
+        #     name="TetriSched_10",
+        #     flags=[
+        #         "--scheduler=TetriSched",
+        #         "--enforce_deadlines",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=10",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
 
     ]
 }
@@ -86,18 +164,18 @@ def partition_num_int(n, rats):
     return parts
 
 def main():
-    exp_dir = Path("tpch_plot")
+    exp_dir = Path("tpch_sim_baselines-graphene+tetrisched")
     if not exp_dir.exists(): exp_dir.mkdir(parents=True)
 
     num_invocations_total = 220
 
-    ar_lo, ar_hi = (0.022, 0.052)
+    ar_lo, ar_hi = (0.01, 0.054)
     ar_weights = (
         0.1346377367,
         0.1507476164,
         0.3153456339,
     )
-    num_interp = 10
+    num_interp = 45
     arrival_rates = [
         partition_num(float(ar), ar_weights)
         for ar in np.linspace(ar_lo, ar_hi, num_interp)
@@ -140,7 +218,6 @@ def main():
             })
 
 
-    
     def task(config):
         try:
             label = config["label"]
@@ -153,7 +230,7 @@ def main():
             spec_file = generate_workload(
                 label=label,
                 output_dir=output_dir,
-                flags=flags,
+                flags=spec_flags,
             )
 
             sim_flags = [
@@ -193,7 +270,7 @@ def main():
             print(traceback.format_exc())
             return config
 
-    num_workers = 20
+    num_workers = 75
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         results = list(tqdm(executor.map(task, configs), total=len(configs)))
 
