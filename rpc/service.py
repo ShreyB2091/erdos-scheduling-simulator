@@ -224,6 +224,22 @@ class Servicer(erdos_scheduler_pb2_grpc.SchedulerServiceServicer):
                     FLAGS.scheduler_plan_ahead_no_consideration_gap, EventTime.Unit.US
                 ),
             )
+        elif FLAGS.scheduler == "Graphene":
+            from schedulers import GrapheneScheduler
+
+            self._scheduler = GrapheneScheduler(
+                preemptive=FLAGS.preemption,
+                runtime=EventTime(FLAGS.scheduler_runtime, EventTime.Unit.US),
+                lookahead=EventTime(FLAGS.scheduler_lookahead, EventTime.Unit.US),
+                retract_schedules=FLAGS.retract_schedules,
+                goal=FLAGS.ilp_goal,
+                time_discretization=EventTime(
+                    FLAGS.scheduler_time_discretization, EventTime.Unit.US
+                ),
+                plan_ahead=EventTime(FLAGS.scheduler_plan_ahead, EventTime.Unit.US),
+                log_to_file=FLAGS.scheduler_log_to_file,
+                _flags=FLAGS,
+            )
         else:
             raise ValueError(f"Unknown scheduler {FLAGS.scheduler}.")
 
