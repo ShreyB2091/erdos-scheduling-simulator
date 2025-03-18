@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import subprocess
 import time
 from functools import partial
-from typing import TextIO
+import os
 import logging
 
 from .experiment_spec import Experiment
@@ -14,17 +14,47 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def run_service(conf_file: Path, stdout: TextIO, stderr: TextIO):
+def run_service(output_dir: Path, conf_file: Path):
+    def outp(ext: str) -> Path:
+        return output_dir / f"service.{ext}"
+
     logger.info("Starting spark service.")
-    service = subprocess.Popen([
-        "python3", "-m", "rpc.service",
-        "--flagfile", conf_file,
-    ], stdout=stdout, stderr=stderr)
+    with open(outp("stdout"), "w") as stdout, open(outp("stderr"), "w") as stderr:
+        service = subprocess.Popen([
+            "python3", "-m", "rpc.service",
+            "--flagfile", conf_file,
+        ], stdout=stdout, stderr=stderr)
+
     try:
         yield service
     finally:
-        logger.info("Stopping spark service")
-        service.terminate()
+        if service.poll() is None:
+            logger.info("Terminating spark service")
+            service.terminate()
+
+
+@contextmanager
+def run_launcher(output_dir: Path, workload_spec: Path, spark_mirror: Path):
+    def outp(ext: str) -> Path:
+        return output_dir / f"launcher.{ext}"
+
+    logger.info("Launching queries...")
+    with open(outp("stdout"), "w") as stdout, open(outp("stderr"), "w") as stderr:
+        launcher = subprocess.Popen([
+            "python3", "-u", "-m", "rpc.launch_tpch_queries",
+            "--workload-spec", workload_spec,
+            "--spark-master-ip", "localhost",
+            "--spark-mirror-path", spark_mirror,
+            "--tpch-spark-path", "rpc/tpch-spark",
+            "--spark-eventlog-dir", output_dir / "spark-eventlog",
+        ], stdout=stdout, stderr=stderr)
+
+    try:
+        yield launcher
+    finally:
+        if launcher.poll() is None:
+            logger.info("Terminating query launcher")
+            launcher.terminate()
 
 
 @contextmanager
@@ -75,27 +105,25 @@ def run_all(
         f.write("\n".join(flags))
         f.write("\n")
 
-    with open(outp("stdout"), "w") as f_stdout, open(outp("stderr"), "w") as f_stderr:
-        with run_service(conf_file, f_stdout, f_stderr) as service:
-            time.sleep(3)
-            with run_spark(spark_mirror, properties_file):
-                time.sleep(5)
+    with run_service(output_dir, conf_file) as service:
+        time.sleep(3)
+        with run_spark(spark_mirror, properties_file):
+            time.sleep(5)
 
-                logger.info("Launching queries...")
-                with open(output_dir / "launcher.stdout", "w") as l_stdout, open(output_dir / "launcher.stderr", "w") as l_stderr:
-                    subprocess.run([
-                        "python3", "-u", "-m", "rpc.launch_tpch_queries",
-                        "--workload-spec", workload_spec,
-                        "--spark-master-ip", "localhost",
-                        "--spark-mirror-path", spark_mirror,
-                        "--tpch-spark-path", "rpc/tpch-spark",
-                        "--spark-eventlog-dir", output_dir / "spark-eventlog",
-                    ], stdout=l_stdout, stderr=l_stderr)
+            with run_launcher(output_dir, workload_spec, spark_mirror) as launcher:
+                while True:
+                    os.wait()
+                    if service.poll():
+                        raise RuntimeError("The service exited with an error.")
+                    if launcher.poll():
+                        raise RuntimeError("The query launcher exited with an error.")
+                    if service.poll() is not None and launcher.poll() is not None:
+                        # Both the service and launcher have completed
+                        # without error.
+                        break
 
-                logger.info("All queries launched.  Waiting for service to end...")
-                service.wait()
-                logger.info("Service complete.")
-                return ExpOutputs(csv=csv_file, conf=conf_file, do_analysis=False)
+    logger.info("Service complete.")
+    return ExpOutputs(csv=csv_file, conf=conf_file, do_analysis=False)
 
 
 def run_service_experiment(
