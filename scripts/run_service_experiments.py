@@ -4,7 +4,7 @@ from pathlib import Path
 import itertools
 import logging
 
-from experiments import Experiment, sched_specs, run_service_experiment
+from experiments import TpchExperiment, sched_specs, run_service_experiment
 
 def main():
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
@@ -20,7 +20,7 @@ def main():
     args = parser.parse_args()
 
     experiments = {
-        f"mixed-{r}": Experiment(
+        f"mixed-{r}": TpchExperiment(
             deadline_variance=(10,25),
             ar_weights=[0.1346377367, 0.1507476164, 0.3153456339],
             num_invocations=220,
