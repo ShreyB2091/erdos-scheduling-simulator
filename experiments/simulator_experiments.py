@@ -4,7 +4,7 @@ import logging
 
 from .experiment_spec import Experiment
 from .scheduler_spec import SchedSpec
-from .common import run_experiment, ExpOutputs
+from .common import run_experiment, ExpOutputs, ExpResults
 
 logger = logging.getLogger(__name__)
 
@@ -50,5 +50,5 @@ def run_simulator_experiment(
         output_dir: Path,
         expt: Experiment,
         sched: SchedSpec,
-) -> dict[str, float]:
+) -> ExpResults:
     return run_experiment(output_dir, expt, sched, run_simulator)

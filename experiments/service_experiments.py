@@ -8,7 +8,7 @@ import logging
 
 from .experiment_spec import Experiment
 from .scheduler_spec import SchedSpec
-from .common import run_experiment, ExpOutputs
+from .common import run_experiment, ExpOutputs, ExpResults
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ def run_service_experiment(
         sched: SchedSpec,
         spark_mirror: Path,
         properties_file: Path,
-) -> dict[str, float]:
+) -> ExpResults:
     run = partial(
         run_all,
         spark_mirror=spark_mirror,

@@ -21,6 +21,26 @@ class ExpOutputs:
     do_analysis: bool
 
 
+@dataclass
+class ExpResults:
+    """The metrics of a completed experiment run.
+
+    Currently this class is a front for the results of analyze.py.
+
+    Attributes:
+        slo           -- clipped SLO attainment in the range 0.0-1.0
+        avg_res_util  -- Average resource utilization
+        good_res_util -- Average resource utilization by tasks that
+                         complete succesfully
+    """
+
+    # TODO: incorporate code from analyze.py into this class
+
+    slo: float
+    avg_res_util: float
+    good_res_util: float
+
+
 def generate_workload(output_dir: Path, expt: Experiment) -> Path:
     logger.info("Generating workload spec.")
     # Dump the workload spec config.
@@ -86,7 +106,7 @@ def run_experiment(
         expt: Experiment,
         sched: SchedSpec,
         run: Callable[[Path, Path, Experiment, SchedSpec], ExpOutputs],
-) -> dict[str, float]:
+) -> ExpResults:
     logger.info(f"Running experiment in {output_dir}.")
     shutil.rmtree(output_dir, ignore_errors=True)
     output_dir.mkdir(parents=True)
@@ -95,12 +115,17 @@ def run_experiment(
 
     workload_spec = generate_workload(output_dir, expt)
     exp_outputs = run(output_dir, workload_spec, expt, sched)
-    analysis = analyze(output_dir, exp_outputs) if exp_outputs.do_analysis else {}
+    if not exp_outputs.do_analysis:
+        # TODO: implement analysis for service runs
+        raise Exception("service runs don't support analysis")
+
+    analysis = analyze(output_dir, exp_outputs)
 
     elapsed_time = datetime.timedelta(seconds=time.time() - start_time)
     logger.info(f"Experiment complete.  Time elapsed: {elapsed_time}")
 
-    return {
-        "slo": parse_slo(exp_outputs.csv),
-        **analysis,
-    }
+    return ExpResults(
+        slo=parse_slo(exp_outputs.csv),
+        avg_res_util=analysis["avg"],
+        good_res_util=analysis["eff"],
+    )
