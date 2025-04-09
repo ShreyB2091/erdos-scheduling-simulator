@@ -23,6 +23,25 @@ from ray.tune import Trainable
 from ray.train import RunConfig
 
 
+def generate_workload(output_dir: Path, flags: list, label="workload") -> Path:
+    # Not used by ray, but useful to reference during analysis
+    conf_file = output_dir / f"{label}-workload-spec.conf"
+    with open(conf_file, "w") as f:
+        f.write("\n".join(str(flag) for flag in flags))
+        f.write("\n")
+
+    spec_file = output_dir / f"{label}.json"
+    with open(spec_file, "w") as f:
+        cmd = [
+            "python3",
+            "-m",
+            "scripts.generate_workload_spec",
+            *(str(flag) for flag in flags),
+        ]
+        subprocess.Popen(cmd, stdout=f).wait()
+    return spec_file
+
+
 def run_simulator(label: str, output_dir: Path, flags: list):
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -40,7 +59,7 @@ def run_simulator(label: str, output_dir: Path, flags: list):
     )
     conf_file = outp("conf")
     with open(conf_file, "w") as f:
-        f.write("\n".join(flags))
+        f.write("\n".join(str(flag) for flag in flags))
         f.write("\n")
 
     stdout, stderr = outp("stdout"), outp("stderr")
@@ -109,7 +128,7 @@ def parse_slo(result: Path):
 def run_and_analyze(label: str, output_dir: Path, flags: list):
     sim = run_simulator(label, output_dir, flags)
     analysis = run_analysis(label, sim)
-    return parse_slo(sim / f"{label}.csv"), parse_analysis(analysis / "stdout")
+    return parse_slo(sim / f"{label}.csv"), parse_analysis(analysis / f"{label}.stdout")
 
 
 def run_edf(output_dir: Path, flags: list):
@@ -154,10 +173,6 @@ def generate_search_space():
         "min_deadline_variance": 10,
         "max_deadline_variance": 25,
 
-        "easy_invoc_weight": tune.uniform(0, 1),
-        "med_invoc_weight": tune.uniform(0, 1),
-        "hard_invoc_weight": tune.uniform(0, 1),
-
         "easy_ar_weight": tune.uniform(0, 1),
         "med_ar_weight": tune.uniform(0, 1),
         "hard_ar_weight": tune.uniform(0, 1),
@@ -165,10 +180,60 @@ def generate_search_space():
         "arrival_rate": tune.uniform(0.022, 0.055),
         "invocations": 220,
 
-        "tpch_max_executors_per_job": 75,
-        "tpch_dataset_size": 250,
+        "tpch_max_executors_per_job": tune.choice((75, 100, 200)),
+        "tpch_dataset_size": tune.choice((100, 250)),
+    }
 
-        "partitioning": "2,11,13,16,19,22:1,6,7,10,12,14,15,20:3,4,5,8,9,17,18,21",
+
+def generate_partition_string(difficulty_dict):
+    """
+    Generate a partitioning string from a single difficulty dictionary.
+
+    Format: 'easy1,easy2,easy3:medium1,medium2,medium3:hard1,hard2,hard3'
+
+    :param difficulty_dict: Dictionary with 'easy', 'medium', 'hard' keys
+    :return: Formatted partition string
+    """
+    # Convert each difficulty list to comma-separated strings
+    easy_str = ','.join(map(str, difficulty_dict['easy']))
+    medium_str = ','.join(map(str, difficulty_dict['medium']))
+    hard_str = ','.join(map(str, difficulty_dict['hard']))
+
+    # Combine with : delimiter
+    return f"{easy_str}:{medium_str}:{hard_str}"
+
+
+query_difficulty_map = {
+        (100, 75): {
+            'easy': [11, 13, 14, 15, 19, 20, 22],
+            'medium': [1, 2, 4, 6, 10, 12, 16, 17, 18],
+            'hard': [3, 5, 7, 8, 9, 21]
+        },
+        (100, 100): {
+            'easy': [2, 11, 13, 16, 19, 22],
+            'medium': [1, 4, 6, 10, 12, 14, 15, 17, 20],
+            'hard': [3, 5, 7, 8, 9, 18, 21]
+        },
+        (100, 200): {
+            'easy': [6, 11, 13, 19, 22],
+            'medium': [1, 2, 4, 10, 12, 14, 15, 16, 20],
+            'hard': [3, 5, 7, 8, 9, 17, 18, 21]
+        },
+        (250, 75): {
+            'easy': [2, 11, 13, 16, 19, 22],
+            'medium': [1, 6, 7, 10, 12, 14, 15, 20],
+            'hard': [3, 4, 5, 8, 9, 17, 18, 21]
+        },
+        (250, 100): {
+            'easy': [2, 11, 13, 16, 19, 22],
+            'medium': [1, 6, 10, 12, 14, 15, 20],
+            'hard': [3, 4, 5, 7, 8, 9, 17, 18, 21]
+        },
+        (250, 200): {
+            'easy': [1, 2, 6, 11, 13, 16, 22],
+            'medium': [4, 7, 10, 12, 14, 15, 19, 20],
+            'hard': [3, 5, 8, 9, 17, 18, 21]
+        }
     }
 
 
@@ -176,7 +241,31 @@ def objective(config, experiment_dir):
     output_dir = experiment_dir / str(train.get_context().get_trial_id())
     output_dir.mkdir(parents=True)
 
-    base_flags = [
+    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
+    arrival_rate = config["arrival_rate"]
+    easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
+    med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
+    hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
+
+    partitioning = generate_partition_string(query_difficulty_map[
+        (config["tpch_dataset_size"], config["tpch_max_executors_per_job"])
+    ])
+
+    workload_spec_flags = [
+        "--partitioning-scheme", partitioning,
+        "--num-queries", config["invocations"],
+        "--arrival-rates", easy_ar, med_ar, hard_ar,
+        "--dataset-size", config["tpch_dataset_size"],
+        "--max-cores", config["tpch_max_executors_per_job"],
+        "--deadline-variance", config["min_deadline_variance"], config["max_deadline_variance"],
+        "--min-task-runtime", 12,
+        "--tpch-query-dag-spec", "profiles/workload/tpch/queries.yaml",
+        "--profile-type", "Cloudlab",
+        "--random-seed", 1234,
+    ]
+    workload_spec = generate_workload(output_dir, workload_spec_flags)
+
+    sim_flags = [
         "--runtime_variance=0",
         "--tpch_min_task_runtime=12",
         "--execution_mode=replay",
@@ -184,48 +273,18 @@ def objective(config, experiment_dir):
         "--tpch_query_dag_spec=profiles/workload/tpch/queries.yaml",
         "--worker_profile_path=profiles/workers/tpch_cluster.yaml",
         "--random_seed=1234",
+        "--slo_ramp_up_clip", 10,
+        "--slo_ramp_down_clip", 10,
+        "--tpch_workload_spec", workload_spec,
+        "--tpch_dataset_size", config["tpch_dataset_size"],
+        "--tpch_max_executors_per_job", config["tpch_max_executors_per_job"],
     ]
 
-    arrival_rate = config["arrival_rate"]
-    num_invocations = config["invocations"]
-
-    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
-    easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
-    med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
-    hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
-
-    total_invoc_weight = config["easy_invoc_weight"] + config["med_invoc_weight"] + config["hard_invoc_weight"]
-    easy_invoc = int(num_invocations * config["easy_invoc_weight"] / total_invoc_weight)
-    med_invoc = int(num_invocations * config["med_invoc_weight"] / total_invoc_weight)
-    hard_invoc = int(num_invocations * config["hard_invoc_weight"] / total_invoc_weight)
-
-    if easy_invoc + med_invoc + hard_invoc < num_invocations:
-        hard_invoc += num_invocations - (easy_invoc + med_invoc + hard_invoc)
-
-    config_specific_flags = [
-        f'--min_deadline_variance={config["min_deadline_variance"]}',
-        f'--max_deadline_variance={config["max_deadline_variance"]}',
-        "--override_release_policy=poisson",
-
-        f'--override_poisson_arrival_rates={easy_ar},{med_ar},{hard_ar}',
-        f'--override_num_invocations={easy_invoc},{med_invoc},{hard_invoc}',
-
-        # f'--override_poisson_arrival_rate={config["override_poisson_arrival_rate"]}',
-        # f'--override_num_invocation={config["override_num_invocation"]}',
-
-        f'--tpch_dataset_size={config["tpch_dataset_size"]}',
-        f'--tpch_max_executors_per_job={config["tpch_max_executors_per_job"]}',
-
-        f'--tpch_query_partitioning={config["partitioning"]}',
-    ]
-
-    flags = [*base_flags, *config_specific_flags]
-
-    edf_slo, edf_analysis = run_edf(output_dir, flags)
-    dsched_slo, dsched_analysis = run_dsched(output_dir, flags)
+    edf_slo, edf_analysis = run_edf(output_dir, sim_flags)
+    dsched_slo, dsched_analysis = run_dsched(output_dir, sim_flags)
 
     metric = (
-        150 * math.log(dsched_slo / 0.8) # penalize for dsched going below 80%
+        (150 * math.log(dsched_slo / 0.8) if dsched_slo < 0.8 else 0) # penalize for dsched going below 80%
         + 2 * (dsched_slo - edf_slo)  # maximize slo difference, weighted by 2
         + (edf_analysis["avg"] - edf_analysis["eff"])  # maximize util difference in edf
         + dsched_analysis["eff"] # maximize effective util in dsched
@@ -251,15 +310,15 @@ def objective(config, experiment_dir):
 # - generate_search_space config space
 
 def main():
-    num_samples = 2000
-    # num_cores_per_trial = 2
+    num_samples = 10000
+    num_cores_per_trial = 2
     # max_concurrent_trials = 4
     search_space = generate_search_space()
     exp_name = f"config-search-{date.today().isoformat()}"
 
-    ray.init(num_cpus=14)
+    ray.init(num_cpus=108)
 
-    experiment_dir = (Path("ray") / exp_name).resolve()
+    experiment_dir = (Path("../expts/ray") / exp_name).resolve()
     if experiment_dir.exists():
         # clear up previous results
         shutil.rmtree(experiment_dir)
@@ -270,7 +329,7 @@ def main():
         objective,
         experiment_dir=experiment_dir,
     )
-    # obj = tune.with_resources(obj, {"cpu": num_cores_per_trial})
+    obj = tune.with_resources(obj, {"cpu": num_cores_per_trial})
     tuner = tune.Tuner(
         obj,
         tune_config=tune.TuneConfig(

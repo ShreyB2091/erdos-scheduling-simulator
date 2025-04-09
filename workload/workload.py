@@ -379,7 +379,8 @@ class Workload(object):
         Returns:
         The clipped SLO attainment, or 0 if no completed task graphs
         """
-        task_graphs = list(self._task_graphs.values())[ramp_up:-ramp_down]
+        task_graphs = list(self._task_graphs.values())
+        task_graphs = task_graphs[ramp_up:len(task_graphs)-ramp_down]
         if not task_graphs:
             return 0
         met = sum(1 for task_graph in task_graphs
