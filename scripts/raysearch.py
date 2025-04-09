@@ -24,21 +24,26 @@ from ray.train import RunConfig
 
 
 def run_simulator(label: str, output_dir: Path, flags: list):
+    output_dir = (output_dir/label)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    def absp(p):
+        return output_dir / p
+
     def outp(ext):
-        return (output_dir / f"{label}.{ext}").resolve()
+        return f"{label}.{ext}"
 
     log_file = outp("log")
     csv_file = outp("csv")
     flags.extend(
         [
+            f"--log_dir={output_dir.resolve()}",
             f"--log={log_file}",
             "--log_level=debug",
             f"--csv={csv_file}",
         ]
     )
-    conf_file = outp("conf")
+    conf_file = absp(outp("conf"))
     with open(conf_file, "w") as f:
         f.write("\n".join(flags))
         f.write("\n")

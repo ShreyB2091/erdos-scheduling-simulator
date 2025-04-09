@@ -1,0 +1,218 @@
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 15:11:37 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 32 rows, 27 columns and 78 nonzeros
+Model fingerprint: 0x72bd5a57
+Variable types: 0 continuous, 27 integer (12 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [2e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 32 rows and 27 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 2: 1 -0 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+User-callback calls 233, time in user-callback 0.00 sec
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 15:13:32 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 26 rows, 27 columns and 69 nonzeros
+Model fingerprint: 0x72554532
+Variable types: 0 continuous, 27 integer (12 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [3e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 26 rows and 27 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 2: 1 -0 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+User-callback calls 233, time in user-callback 0.00 sec
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 15:15:21 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 26 rows, 27 columns and 69 nonzeros
+Model fingerprint: 0x7d66eca4
+Variable types: 0 continuous, 27 integer (12 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [3e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 26 rows and 27 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 2: 1 -0 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+User-callback calls 233, time in user-callback 0.00 sec
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 15:27:16 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 26 rows, 27 columns and 69 nonzeros
+Model fingerprint: 0xd3c9807e
+Variable types: 0 continuous, 27 integer (12 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [3e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 26 rows and 27 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 2: 1 -0 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+User-callback calls 233, time in user-callback 0.00 sec
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 16:07:15 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 26 rows, 27 columns and 69 nonzeros
+Model fingerprint: 0x7d66eca4
+Variable types: 0 continuous, 27 integer (12 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [3e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 26 rows and 27 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 2: 1 -0 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+User-callback calls 233, time in user-callback 0.00 sec
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 16:12:12 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 30 rows, 33 columns and 96 nonzeros
+Model fingerprint: 0x1a56a4f8
+Variable types: 0 continuous, 33 integer (15 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [2e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 30 rows and 33 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 1: -0 
+No other solutions better than -0
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective -0.000000000000e+00, best bound -0.000000000000e+00, gap 0.0000%
+
+User-callback calls 217, time in user-callback 0.00 sec
+
+Gurobi 10.0.0 (linux64) logging started Sun Apr  6 16:13:08 2025
+
+Set parameter LogFile to value "/coc/scratch/epinto6/erdos-scheduling-simulator/sosp25/output/dsched-after-critical-opt/tetrisched_0.log"
+Gurobi Optimizer version 10.0.0 build v10.0.0rc2 (linux64)
+
+CPU model: Intel(R) Xeon(R) Gold 6226 CPU @ 2.70GHz, instruction set [SSE2|AVX|AVX2|AVX512]
+Thread count: 24 physical cores, 24 logical processors, using up to 24 threads
+
+Optimize a model with 26 rows, 27 columns and 69 nonzeros
+Model fingerprint: 0xa51c2d47
+Variable types: 0 continuous, 27 integer (12 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 6e+00]
+  RHS range        [3e+00, 3e+00]
+Found heuristic solution: objective -0.0000000
+Presolve removed 26 rows and 27 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 24 available processors)
+
+Solution count 2: 1 -0 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+User-callback calls 233, time in user-callback 0.00 sec

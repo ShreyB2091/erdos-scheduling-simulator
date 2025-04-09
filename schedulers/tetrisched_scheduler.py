@@ -160,8 +160,7 @@ class TetriSchedScheduler(BaseScheduler):
             log to files with the format "gurobi_{sim_time}.log".
         _flags (`Optional[absl.flags]`): The runtime flags that are used to initialize
             a logger instance.
-        plan_ahead_no_consideration_gap (`EventTime`): The time gap after the current
-            time for which plan ahead is not considered malleable. Any tasks placed
+        plan_ahead_no_consideration_gap (`EventTime`): The time gap after the current time for which plan ahead is not considered malleable. Any tasks placed
             during this time will not be reconsidered for scheduling in a particular
             run.
     """
@@ -853,7 +852,8 @@ class TetriSchedScheduler(BaseScheduler):
                     f"tetrisched_error_{sim_time.time}.dot."
                 )
                 objective_strl.exportToDot(
-                    os.path.join(self._log_dir, f"tetrisched_error_{sim_time.time}.dot")
+                    os.path.join(self._log_dir, f"tetrisched_error_{sim_time.time}.dot"),
+                    emitChooseExpressions=True,
                 )
                 self._scheduler.exportLastSolverModel(
                     os.path.join(self._log_dir, f"tetrisched_error_{sim_time.time}.lp")
@@ -869,7 +869,8 @@ class TetriSchedScheduler(BaseScheduler):
                     f"tetrisched_error_{sim_time.time}.dot."
                 )
                 objective_strl.exportToDot(
-                    os.path.join(self._log_dir, f"tetrisched_error_{sim_time.time}.dot")
+                    os.path.join(self._log_dir, f"tetrisched_error_{sim_time.time}.dot"),
+                    emitChooseExpressions=True,
                 )
                 self._scheduler.exportLastSolverModel(
                     os.path.join(self._log_dir, f"tetrisched_error_{sim_time.time}.lp")
@@ -881,7 +882,8 @@ class TetriSchedScheduler(BaseScheduler):
                     os.path.join(self._log_dir, f"tetrisched_{sim_time.time}.lp")
                 )
                 objective_strl.exportToDot(
-                    os.path.join(self._log_dir, f"tetrisched_{sim_time.time}.dot")
+                    os.path.join(self._log_dir, f"tetrisched_{sim_time.time}.dot"),
+                    emitChooseExpressions=True,
                 )
                 self._logger.debug(
                     f"[{sim_time.to(EventTime.Unit.US).time}] Exported model to "

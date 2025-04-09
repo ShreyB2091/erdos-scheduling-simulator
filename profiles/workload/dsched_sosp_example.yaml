@@ -1,0 +1,36 @@
+graphs:
+    - name: Example
+      graph:
+          - name: T1
+            work_profile: T1
+            children: ["T2", "T3"]
+          - name: T2
+            work_profile: T2
+          - name: T3
+            work_profile: T3
+      release_policy: fixed
+      period: 0 # In us for now.
+      invocations: 1
+profiles:
+    - name: T1
+      execution_strategies:
+          - batch_size: 1
+            runtime: 3
+            resource_requirements:
+                Slot_1:any: 3
+    - name: T2
+      execution_strategies:
+          - batch_size: 1
+            runtime: 2 
+            resource_requirements:
+                Slot_1:any: 2
+    - name: T3
+      execution_strategies:
+          - batch_size: 1
+            runtime: 2
+            resource_requirements:
+                Slot_2:any: 1
+          - batch_size: 1
+            runtime: 3
+            resource_requirements:
+                Slot_1:any: 2

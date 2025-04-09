@@ -1,0 +1,27 @@
+digraph TetriSched_0 {
+"2600737c-6416-4778-8bc3-db8801eec721" [label="ObjectiveExpression(TetriSched_0)"]
+"2600737c-6416-4778-8bc3-db8801eec721" -> "f34b24db-60a5-4f2b-8d29-249b9e5d5dfb"
+"f34b24db-60a5-4f2b-8d29-249b9e5d5dfb" [label="ScaleExpression(Example@0_scale)"]
+"f34b24db-60a5-4f2b-8d29-249b9e5d5dfb" -> "2fdb9cb7-cbd2-48f9-90ae-bd6d22071a97"
+"2fdb9cb7-cbd2-48f9-90ae-bd6d22071a97" [label="LessThanExpression(T1@Example@0_less_than)"]
+"2fdb9cb7-cbd2-48f9-90ae-bd6d22071a97" -> "5936128e-ca84-414b-82f7-16c8529ba20a"
+"2fdb9cb7-cbd2-48f9-90ae-bd6d22071a97" -> "348e15a8-ede7-4687-957b-dfe1aa44ca4d"
+"348e15a8-ede7-4687-957b-dfe1aa44ca4d" [label="MinExpression(T1@Example@0_children)"]
+"348e15a8-ede7-4687-957b-dfe1aa44ca4d" -> "dc23b4ca-09b0-4c31-9463-57e03667c83d"
+"348e15a8-ede7-4687-957b-dfe1aa44ca4d" -> "6584e0b8-bf01-4004-9bad-919422e2ba2d"
+"6584e0b8-bf01-4004-9bad-919422e2ba2d" [label="MaxExpression(T3@Example@0_placement)"]
+"6584e0b8-bf01-4004-9bad-919422e2ba2d" -> "6048c93d-fa82-4196-a77f-b28c3b3669ea"
+"6584e0b8-bf01-4004-9bad-919422e2ba2d" -> "ed4740a2-07e2-4b36-aa58-66ba12a90a9b"
+"6584e0b8-bf01-4004-9bad-919422e2ba2d" -> "3e3a3887-6a32-410f-80a4-7252d5a92752"
+"3e3a3887-6a32-410f-80a4-7252d5a92752" [label="Choose(T3@Example@0, S=3, F=6)"]
+"ed4740a2-07e2-4b36-aa58-66ba12a90a9b" [label="Choose(T3@Example@0, S=4, F=6)"]
+"6048c93d-fa82-4196-a77f-b28c3b3669ea" [label="Choose(T3@Example@0, S=3, F=5)"]
+"dc23b4ca-09b0-4c31-9463-57e03667c83d" [label="MaxExpression(T2@Example@0_placement)"]
+"dc23b4ca-09b0-4c31-9463-57e03667c83d" -> "d966b50a-5619-4389-b4ed-444c1a76d576"
+"dc23b4ca-09b0-4c31-9463-57e03667c83d" -> "f9d1801e-1e21-47d1-8fef-cb7857bdefbc"
+"f9d1801e-1e21-47d1-8fef-cb7857bdefbc" [label="Choose(T2@Example@0, S=4, F=6)"]
+"d966b50a-5619-4389-b4ed-444c1a76d576" [label="Choose(T2@Example@0, S=3, F=5)"]
+"5936128e-ca84-414b-82f7-16c8529ba20a" [label="MaxExpression(T1@Example@0_placement)"]
+"5936128e-ca84-414b-82f7-16c8529ba20a" -> "a1b1469f-596a-4ad8-894d-5a3ad8460ba8"
+"a1b1469f-596a-4ad8-894d-5a3ad8460ba8" [label="Choose(T1@Example@0, S=0, F=3)"]
+}
