@@ -67,7 +67,7 @@ def run_simulator(label: str, output_dir: Path, flags: list):
         f.write("\n".join(str(flag) for flag in flags))
         f.write("\n")
 
-    stdout, stderr = outp("stdout"), outp("stderr")
+    stdout, stderr = absp(outp("stdout")), absp(outp("stderr"))
     with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
         cmd = [
             "python3",
@@ -112,7 +112,7 @@ def parse_analysis(result: Path):
     return {"avg": avg, "eff": eff}
 
 
-def parse_slo(result: Path):
+def parse_simulator_result(result: Path):
     with open(result, "r") as f:
         data = reversed(f.readlines())
     slo = None
@@ -127,14 +127,27 @@ def parse_slo(result: Path):
             slo = (finished - missed) / (finished + cancelled) * 100
             slo = float(parts[8])
             break
-    return slo
+    scheduler_runtimes = []
+    for line in data:
+        parts = line.split(",")
+        if parts[1] == "SCHEDULER_FINISHED" and (int(parts[3]) != 0 or int(parts[4]) != 0):
+            scheduler_runtimes.append(float(parts[-1]))
+    return {
+        "slo": slo,
+        "scheduler_runtimes": scheduler_runtimes,
+    }
 
 
 def run_and_analyze(label: str, output_dir: Path, flags: list):
     sim = run_simulator(label, output_dir, flags)
     analysis = run_analysis(label, sim)
-    return parse_slo(sim / f"{label}.csv"), parse_analysis(analysis / f"{label}.stdout")
 
+    sim_results = parse_simulator_result(sim / f"{label}.csv")
+    return {
+        "slo": sim_results["slo"],
+        "avg_scheduler_runtime": sum(sim_results["scheduler_runtimes"]) / len(sim_results["scheduler_runtimes"]),
+        "analysis": parse_analysis(analysis / f"{label}.stdout")
+    }
 
 def run_edf(output_dir: Path, flags: list):
     output_dir = output_dir / "edf"
@@ -285,8 +298,11 @@ def objective(config, experiment_dir):
         "--tpch_max_executors_per_job", config["tpch_max_executors_per_job"],
     ]
 
-    edf_slo, edf_analysis = run_edf(output_dir, sim_flags)
-    dsched_slo, dsched_analysis = run_dsched(output_dir, sim_flags)
+    result_edf = run_edf(output_dir, sim_flags)
+    result_dsched = run_edf(output_dir, sim_flags)
+
+    edf_slo, edf_analysis = result_edf["slo"], result_edf["analysis"]
+    dsched_slo, dsched_analysis = result_dsched["slot"], result_dsched["analysis"]
 
     metric = (
         (150 * math.log(dsched_slo / 0.8) if dsched_slo < 0.8 else 0) # penalize for dsched going below 80%

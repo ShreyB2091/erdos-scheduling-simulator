@@ -24,27 +24,27 @@ class SchedSpec:
 
 sched_specs = {
     spec.name: spec for spec in [
-        # SchedSpec(
-        #     name="DSched",
-        #     flags=[
-        #         "--scheduler=TetriSched",
-        #         "--enforce_deadlines",
-        #         "--release_taskgraphs",
-        #         "--opt_passes=CRITICAL_PATH_PASS",
-        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-        #         "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
-        #         "--retract_schedules",
-        #         "--scheduler_max_occupancy_threshold=0.999",
-        #         "--finer_discretization_at_prev_solution",
-        #         "--scheduler_selective_rescheduling",
-        #         "--scheduler_reconsideration_period=0.9",
-        #         "--scheduler_time_discretization=1",
-        #         "--scheduler_max_time_discretization=5",
-        #         "--finer_discretization_window=5",
-        #         "--scheduler_plan_ahead_no_consideration_gap=2",
-        #         "--drop_skipped_tasks",
-        #     ],
-        # ),
+        SchedSpec(
+            name="DSched",
+            flags=[
+                "--scheduler=TetriSched",
+                "--enforce_deadlines",
+                "--release_taskgraphs",
+                "--opt_passes=CRITICAL_PATH_PASS",
+                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+                "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
+                "--retract_schedules",
+                "--scheduler_max_occupancy_threshold=0.999",
+                "--finer_discretization_at_prev_solution",
+                "--scheduler_selective_rescheduling",
+                "--scheduler_reconsideration_period=0.9",
+                "--scheduler_time_discretization=1",
+                "--scheduler_max_time_discretization=5",
+                "--finer_discretization_window=5",
+                "--scheduler_plan_ahead_no_consideration_gap=2",
+                "--drop_skipped_tasks",
+            ],
+        ),
 
         # SchedSpec(
         #     name="EDF",
@@ -55,17 +55,17 @@ sched_specs = {
         #     ],
         # ),
 
-        SchedSpec(
-            name="Graphene_0",
-            flags=[
-                "--scheduler=Graphene",
-                "--scheduler_time_discretization=1",
-                "--retract_schedules",
-                "--scheduler_plan_ahead=0",
-                "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-            ],
-        ),
+        # SchedSpec(
+        #     name="Graphene_0",
+        #     flags=[
+        #         "--scheduler=Graphene",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=0",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
 
         # SchedSpec(
         #     name="Graphene_10",
@@ -93,18 +93,18 @@ sched_specs = {
         #     ],
         # ),
 
-        SchedSpec(
-            name="TetriSched_0",
-            flags=[
-                "--scheduler=TetriSched",
-                "--enforce_deadlines",
-                "--scheduler_time_discretization=1",
-                "--retract_schedules",
-                "--scheduler_plan_ahead=0",
-                "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-            ],
-        ),
+        # SchedSpec(
+        #     name="TetriSched_0",
+        #     flags=[
+        #         "--scheduler=TetriSched",
+        #         "--enforce_deadlines",
+        #         "--scheduler_time_discretization=1",
+        #         "--retract_schedules",
+        #         "--scheduler_plan_ahead=0",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #     ],
+        # ),
 
         # SchedSpec(
         #     name="TetriSched_1",
@@ -164,18 +164,21 @@ def partition_num_int(n, rats):
     return parts
 
 def main():
-    exp_dir = Path("tpch_sim_baselines-graphene+tetrisched")
+    exp_dir = Path("tpch_scheduler_runtime-dsched")
     if not exp_dir.exists(): exp_dir.mkdir(parents=True)
 
     num_invocations_total = 220
 
-    ar_lo, ar_hi = (0.01, 0.054)
+    ar_lo, ar_hi = (0.03, 0.054)
+
+    # medium load
     ar_weights = (
         0.1346377367,
         0.1507476164,
         0.3153456339,
     )
-    num_interp = 45
+
+    num_interp = 1
     arrival_rates = [
         partition_num(float(ar), ar_weights)
         for ar in np.linspace(ar_lo, ar_hi, num_interp)
@@ -251,7 +254,7 @@ def main():
                 # scheduler flags
                 *sched_flags
             ]
-            slo, util = run_and_analyze(
+            result = run_and_analyze(
                 label=label,
                 output_dir=output_dir,
                 flags=sim_flags,
@@ -261,8 +264,9 @@ def main():
                 "config": config,
                 "name": sched_name,
                 "arrival_rate": arrival_rate,
-                "slo": slo,
-                **util,
+                "slo": result["slo"],
+                "avg_scheduler_runtime": result["avg_scheduler_runtime"],
+                **result["analysis"],
             }
         except Exception as e:
             print(f"Failed to run {config}")
@@ -270,7 +274,7 @@ def main():
             print(traceback.format_exc())
             return config
 
-    num_workers = 75
+    num_workers = 10
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         results = list(tqdm(executor.map(task, configs), total=len(configs)))
 
