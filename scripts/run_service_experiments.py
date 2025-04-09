@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import subprocess
 import time
@@ -131,6 +132,7 @@ class Launcher:
                     *("--spark-master-ip", self.spark_master_ip),
                     *("--spark-mirror-path", self.spark_mirror_path),
                     *("--tpch-spark-path", self.tpch_spark_path),
+                    "--spark-eventlog-dir", self.output_dir / "spark-eventlog",
                 ],
                 self.dry_run,
                 stdout=f_out,
@@ -145,7 +147,7 @@ class Experiment:
     launcher_args: any
 
     def run(self, args):
-        output_dir = args.output_dir / (self.name + '-' + datetime.now().isoformat())
+        output_dir = args.output_dir / self.name
         if not output_dir.exists():
             output_dir.mkdir(parents=True)
         with open(output_dir / "service.args", "w") as f:
@@ -187,16 +189,16 @@ def main():
     parser.add_argument(
         "--spark-master-ip",
         type=str,
-        required=True,
         help="IP address of node running Spark master",
+        default="localhost",
     )
     parser.add_argument(
         "--tpch-spark-path",
         type=Path,
-        required=True,
         help="Path to TPC-H Spark repository",
+        default="rpc/tpch-spark",
     )
-    parser.add_argument("--output-dir", type=Path, default=Path("exp-output"))
+    parser.add_argument("--output-dir", type=Path, default=Path("../service-plot"))
     args = parser.parse_args()
 
     if not args.output_dir.exists():
@@ -205,43 +207,53 @@ def main():
     base_args = [
         "--enforce_deadlines",
         "--override_worker_cpu_count",
+        "--tpch_min_task_runtime", 12,
+        "--slo_ramp_up_clip", 10,
+        "--slo_ramp_down_clip", 10,
     ]
     variance_args = [
         *("--min_deadline_variance", 10),
         *("--max_deadline_variance", 25),
+        "--random_seed", 1234,
     ]
-    edf_args = [
-        *("--scheduler", "EDF"),
-    ]
-    dsched_args = [
-        *("--scheduler", "TetriSched"),
-        "--release_taskgraphs",
-        *("--opt_passes", "CRITICAL_PATH_PASS"),
-        *("--opt_passes", "CAPACITY_CONSTRAINT_PURGE_PASS"),
-        *("--opt_passes", "DYNAMIC_DISCRETIZATION_PASS"),
-        "--retract_schedules",
-        *("--scheduler_max_occupancy_threshold", 0.999),
-        "--finer_discretization_at_prev_solution",
-        "--scheduler_selective_rescheduling",
-        *("--scheduler_reconsideration_period", 0.6),
-        *("--scheduler_time_discretization", 1),
-        *("--scheduler_max_time_discretization", 5),
-        *("--finer_discretization_window", 5),
-        *("--scheduler_plan_ahead_no_consideration_gap", 1),
-    ]
+    sched_args = {
+        "edf": [
+            *("--scheduler", "EDF"),
+            "--enforce_deadlines",
+            "--scheduler_plan_ahead_no_consideration_gap", 1
+        ],
+        "dsched": [
+            *("--scheduler", "TetriSched"),
+            "--release_taskgraphs",
+            *("--opt_passes", "CRITICAL_PATH_PASS"),
+            *("--opt_passes", "CAPACITY_CONSTRAINT_PURGE_PASS"),
+            *("--opt_passes", "DYNAMIC_DISCRETIZATION_PASS"),
+            "--retract_schedules",
+            *("--scheduler_max_occupancy_threshold", 0.999),
+            "--finer_discretization_at_prev_solution",
+            "--scheduler_selective_rescheduling",
+            *("--scheduler_reconsideration_period", 0.9),
+            *("--scheduler_time_discretization", 1),
+            *("--scheduler_max_time_discretization", 5),
+            *("--finer_discretization_window", 5),
+            *("--scheduler_plan_ahead_no_consideration_gap", 2),
+            "--drop_skipped_tasks",
+        ],
+    }
     experiments = [
         Experiment(
-            name="dsched-q300-hard",
+            name=f"mixed-{r}-{sched}",
             service_args=[
                 *base_args,
-                *dsched_args,
+                *sched_args[sched],
                 *variance_args,
             ],
             launcher_args=[
-                *("--num_queries", 300),
-                *("--variable_arrival_rate", 0.052),
+                "--workload-spec", f"../tpch-plot/mixed-{r}/EDF/workload.json",
             ],
-        ),
+        )
+        for r in (0.02, 0.03, 0.045, 0.05)
+        for sched in ("edf", "dsched")
     ]
 
     for i, experiment in enumerate(experiments):

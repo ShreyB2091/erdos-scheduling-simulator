@@ -707,6 +707,7 @@ class JobGraph(Graph[Job]):
     def get_next_task_graph(
         self,
         start_time: EventTime,
+        deadline: Optional[EventTime] = None,
         _flags: Optional["absl.flags"] = None,
     ) -> Optional[TaskGraph]:
         if self._remaining_task_graphs > 0:
@@ -716,6 +717,7 @@ class JobGraph(Graph[Job]):
                 release_time=start_time,
                 task_graph_name=f"{self.name}@{self._task_graph_index}",
                 timestamp=self._task_graph_index,
+                deadline=deadline,
                 _flags=_flags,
             )
         else:
@@ -759,6 +761,7 @@ class JobGraph(Graph[Job]):
         release_time: EventTime,
         task_graph_name: str,
         timestamp: int,
+        deadline: Optional[EventTime] = None,
         _flags: Optional["absl.flags"] = None,
     ) -> TaskGraph:
         """Generates a TaskGraph from the structure of the `JobGraph` whose
@@ -805,24 +808,27 @@ class JobGraph(Graph[Job]):
             resolve_conditionals = False
             task_logger = setup_logging(name="Task")
 
-        # Create an RNG to be used when fuzzing deadlines, seeded by
-        # the TaskGraph name and the global random seed, if provided.
-        # This ensures that deadlines are deterministic, which is
-        # needed for simulator/Spark parity.
-        deadline_rng = random.Random(
-            (str(_flags.random_seed) if _flags else "") + task_graph_name
-        )
+        if deadline is not None:
+            task_deadline = release_time + deadline
+        else:
+            # Create an RNG to be used when fuzzing deadlines, seeded by
+            # the TaskGraph name and the global random seed, if provided.
+            # This ensures that deadlines are deterministic, which is
+            # needed for simulator/Spark parity.
+            deadline_rng = random.Random(
+                (str(_flags.random_seed) if _flags else "") + task_graph_name
+            )
 
-        # Generate the deadline for all the Tasks.
-        # TODO (Sukrit): Right now, this assumes that all Tasks in the TaskGraph come
-        # with the same deadline. At some point, we will have to implement a
-        # heuristic-based deadline splitting technique.
-        
-        # NOTE: The taskgraph deadline is re-generated (and overwritten) after 
-        # use_branch_predicated_deadlines code, since fuzz is invoked again there.
-        task_deadline = release_time + self.completion_time.fuzz(
-            deadline_variance, deadline_bounds, rng=deadline_rng
-        )
+            # Generate the deadline for all the Tasks.
+            # TODO (Sukrit): Right now, this assumes that all Tasks in the TaskGraph come
+            # with the same deadline. At some point, we will have to implement a
+            # heuristic-based deadline splitting technique.
+            
+            # NOTE: The taskgraph deadline is re-generated (and overwritten) after 
+            # use_branch_predicated_deadlines code, since fuzz is invoked again there.
+            task_deadline = release_time + self.completion_time.fuzz(
+                deadline_variance, deadline_bounds, rng=deadline_rng
+            )
 
         # Generate all the `Task`s from the `Job`s in the graph.
         job_to_task_mapping = {}
@@ -894,11 +900,14 @@ class JobGraph(Graph[Job]):
         else:
             weighted_task_graph_length = self.__get_completion_time()
 
-        # NOTE: This is the second time the deadline is being set, based on a second 
-        # invocation of fuzz.
-        task_graph_deadline = release_time + weighted_task_graph_length.fuzz(
-            deadline_variance, deadline_bounds, rng=deadline_rng
-        )
+        # NOTE: This is the second time the deadline is being set
+        if deadline is not None:
+            task_graph_deadline = release_time + deadline
+        else:
+            task_graph_deadline = release_time + weighted_task_graph_length.fuzz(
+                deadline_variance, deadline_bounds, rng=deadline_rng
+            )
+
         if _flags and _flags.decompose_deadlines:
             stages_info = {}
             stages = set([])
