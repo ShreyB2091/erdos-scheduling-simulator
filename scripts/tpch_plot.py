@@ -46,6 +46,29 @@ sched_specs = {
             ],
         ),
 
+        SchedSpec(
+            name="DSched-noopt",
+            flags=[
+                "--scheduler=TetriSched",
+                "--enforce_deadlines",
+                "--release_taskgraphs",
+                # "--opt_passes=CRITICAL_PATH_PASS",
+                # "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+                # "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
+                "--retract_schedules",
+                "--scheduler_max_occupancy_threshold=0.999",
+                "--finer_discretization_at_prev_solution",
+                "--scheduler_selective_rescheduling",
+                "--scheduler_reconsideration_period=0.9",
+                "--scheduler_time_discretization=1",
+                "--scheduler_max_time_discretization=5",
+                "--finer_discretization_window=5",
+                "--scheduler_plan_ahead_no_consideration_gap=2",
+                "--drop_skipped_tasks",
+            ],
+        ),
+
+
         # SchedSpec(
         #     name="EDF",
         #     flags=[
@@ -169,6 +192,7 @@ def main():
 
     num_invocations_total = 220
 
+    # ar_lo, ar_hi = (0.02, 0.054)
     ar_lo, ar_hi = (0.03, 0.054)
 
     # medium load
@@ -178,7 +202,7 @@ def main():
         0.3153456339,
     )
 
-    num_interp = 1
+    num_interp = 4
     arrival_rates = [
         partition_num(float(ar), ar_weights)
         for ar in np.linspace(ar_lo, ar_hi, num_interp)

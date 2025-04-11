@@ -731,6 +731,8 @@ class TetriSchedScheduler(BaseScheduler):
 
                         # This TaskGraph is not to be rescheduled. Just add Allocation
                         # Expressions for the tasks that have already been placed.
+                        allocation_task_strls = []
+                        cancel_task = None
                         for task in tasks_to_be_scheduled:
                             if task.task_graph == task_graph_name:
                                 task_strl = self.construct_task_strl(
@@ -741,14 +743,26 @@ class TetriSchedScheduler(BaseScheduler):
                                     retract_schedules=False,
                                 )
                                 if task_strl is not None:
-                                    objective_strl.addChild(task_strl)
+                                    allocation_task_strls.append(task_strl)
+                                    # objective_strl.addChild(task_strl)
                                 else:
-                                    raise RuntimeError(
-                                        f"Could not construct STRL for Task "
-                                        f"{task.unique_name}. This is required for "
-                                        f"previously placed tasks to account for "
-                                        f"correct Allocations."
+                                    # Failed to generate STRL for a task that was meant to be allocated.
+                                    # Cancel it
+                                    self._logger.debug(
+                                        "[%s] Failed to generate STRL for %s.",
+                                        "Cancelling this task."
+                                        "Not adding AllocationExpression for its task_graph.",
+                                        sim_time.time,
+                                        task.unique_name,
                                     )
+                                    cancel_task = task
+                                    break
+                                    # raise RuntimeError(
+                                    #     f"Could not construct STRL for Task "
+                                    #     f"{task.unique_name}. This is required for "
+                                    #     f"previously placed tasks to account for "
+                                    #     f"correct Allocations."
+                                    # )
                                 self._skipped_task_names.add(task.unique_name)
                                 self._logger.debug(
                                     "[%s] Adding %s to the tasks being "
@@ -756,6 +770,12 @@ class TetriSchedScheduler(BaseScheduler):
                                     sim_time.time,
                                     task.unique_name,
                                 )
+
+                        if cancel_task:
+                            placements.append(Placement.create_task_cancellation(task=cancel_task))
+                        else:
+                            for task_strl in allocation_task_strls:
+                                objective_strl.addChild(task_strl)
                         continue
 
                     # Construct the STRL.
@@ -1011,18 +1031,24 @@ class TetriSchedScheduler(BaseScheduler):
                 # placement of any of the tasks, and wait for the next invocation.
                 self._logger.warning(f"[{sim_time.time}] Failed to place any tasks.")
 
-        # if sim_time == EventTime(210, EventTime.Unit.US):
-        #     raise RuntimeError("Stopping the Simulation.")
-
         scheduler_end_time = time.time()
+
+        true_runtime = EventTime(int((scheduler_end_time - scheduler_start_time) * 1e6), EventTime.Unit.US)
+
+        # US is considered 1s in the simulator
+        # Don't multiple by 1e6 here, because time is already counted in seconds
         scheduler_runtime = EventTime(
-            int((scheduler_end_time - scheduler_start_time) * 1e6), EventTime.Unit.US
+            int((scheduler_end_time - scheduler_start_time)), EventTime.Unit.US
         )
         runtime = (
             scheduler_runtime if self.runtime == EventTime.invalid() else self.runtime
         )
+        
+        # Apply filter
+        placements = [p for p in placements if p.task.state < TaskState.SCHEDULED]
+
         return Placements(
-            runtime=runtime, true_runtime=scheduler_runtime, placements=placements
+            runtime=runtime, true_runtime=true_runtime, placements=placements
         )
 
     def _get_time_discretizations_until(

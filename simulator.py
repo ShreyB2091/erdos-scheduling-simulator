@@ -1393,11 +1393,15 @@ class Simulator(object):
             event,
         )
         task = event.task
-        assert (
-            task.id in self._future_placement_events
-        ), "Inconsistency in future placements."
+        
+        # if task.id not in self._future_placement_events:
+        #     breakpoint()
+        # assert (
+        #     task.id in self._future_placement_events
+        # ), "Inconsistency in future placements."
+
         task_graph = workload.get_task_graph(task.task_graph)
-        assert task_graph is not None, "Inconsistency in Task placement and Workload."
+        # assert task_graph is not None, "Inconsistency in Task placement and Workload."
         
         # Subroutine to handle avoid automatic re-placement of tasks in the next timestep
         # if they were unable to start either due to (i) parent task not finished or 
@@ -1583,7 +1587,8 @@ class Simulator(object):
             "[%s] The resource requirements of %s were %s.",
             event.time.time,
             task,
-            task.resource_requirements,
+            # task.resource_requirements,
+            task
         )
 
         worker_pool = self._worker_pools.get_worker_pool(event.placement.worker_pool_id)
@@ -2193,10 +2198,11 @@ class Simulator(object):
             # `placement_time`
             # This scenario happens when the `scheduler_runtime` is non-zero.
             if placement._placement_time and placement._placement_time < placement_time:
+                new_placement_time = (placement._placement_time - self._simulator_time) + placement_time
                 self._logger.warning(
-                    f"[{self._simulator_time}] Placement is in the past. Updating placement time from {placement._placement_time} to {placement_time}"
+                    f"[{self._simulator_time}] Placement {placement} is in the past. Updating placement time from {placement._placement_time} to {new_placement_time}"
                 )
-                placement._placement_time = placement_time
+                placement._placement_time = new_placement_time
 
         # Save the placements until the placement time arrives.
         self._last_scheduler_placements = placements

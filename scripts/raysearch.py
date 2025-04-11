@@ -143,9 +143,12 @@ def run_and_analyze(label: str, output_dir: Path, flags: list):
     analysis = run_analysis(label, sim)
 
     sim_results = parse_simulator_result(sim / f"{label}.csv")
+    avg_scheduler_runtime = 0.0
+    if len(sim_results["scheduler_runtimes"]) > 0:
+        avg_scheduler_runtime = sum(sim_results["scheduler_runtimes"]) / len(sim_results["scheduler_runtimes"])
     return {
         "slo": sim_results["slo"],
-        "avg_scheduler_runtime": sum(sim_results["scheduler_runtimes"]) / len(sim_results["scheduler_runtimes"]),
+        "avg_scheduler_runtime": avg_scheduler_runtime,
         "analysis": parse_analysis(analysis / f"{label}.stdout")
     }
 

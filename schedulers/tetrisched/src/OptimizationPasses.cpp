@@ -683,10 +683,9 @@ void DiscretizationSelectorOptimizationPass::runPass(
   capacityConstraints->setDynamicDiscretization(timeRangeToGranularities);
 
   // Log the found dynamic discretizations and times.
-  // std::cout << "[DiscretizationSelectorOptimizationPass] Dynamic
-  // Discretization between " << minOccupancyTime << " and " << maxOccupancyTime
-  // << ": "<<
-  //     std::endl;
+  // std::cout
+  //   << "[DiscretizationSelectorOptimizationPass] Dynamic Discretization between " << minOccupancyTime << " and " << maxOccupancyTime
+  //   << ": "<< std::endl;
 
   // for (auto &[discretizationTimeRange, granularity] :
   //      timeRangeToGranularities) {
@@ -694,8 +693,9 @@ void DiscretizationSelectorOptimizationPass::runPass(
   //             << "[" << minOccupancyTime << "]"
   //             << "[DiscretizationSelectorOptimizationPassDiscreteTime] "
   //             << discretizationTimeRange.first << " - " <<
-  //             discretizationTimeRange.second << " : " << granularity << "
-  //             Occuapncy: " << occupancyRequests[discretizationTimeRange.first
+  //             discretizationTimeRange.second << " : " << granularity
+  //             << "\t"
+  //             << "Occupancy: " << occupancyRequests[discretizationTimeRange.first
   //             - minOccupancyTime] << std::endl;
   // }
 
@@ -708,6 +708,9 @@ void DiscretizationSelectorOptimizationPass::runPass(
       std::vector<ExpressionPtr> savedChildren;
       // only keep one nck within every time range
       auto expressionChildren = maxNckExpr->getChildren();
+      // std::sort(expressionChildren.begin(), expressionChildren.end(), [](const ExpressionPtr& a, const ExpressionPtr& b) {
+      //   return a->getTimeBounds().startTimeRange.first < b->getTimeBounds().startTimeRange.first;
+      // });
       auto child = expressionChildren.begin();
       for (auto &[discreteTimeRange, discreteGranularity] : timeRangeToGranularities)
       {
@@ -717,6 +720,10 @@ void DiscretizationSelectorOptimizationPass::runPass(
         ExpressionPtr minStartTimeNckExpr = nullptr;
         ExpressionPtr prevSolutionNckExpr = nullptr;
         for (; child != expressionChildren.end(); ++child) {
+          // std::cout << "DEBUG:"
+          //   << child->get()->getDescriptiveName() << " "
+          //   << "(" << startTime << "," << endTime << ")"
+          //   << std::endl;
           auto startTimeNck = (*child)->getTimeBounds().startTimeRange.first;
           if (startTimeNck >= startTime && startTimeNck < endTime) {
             // ncksWithinTimeRange.push_back(*child);
@@ -733,9 +740,10 @@ void DiscretizationSelectorOptimizationPass::runPass(
             }
           } else {
             if (startTimeNck < startTime) {
+              std::cout <<"ERROR:" << "(" << startTime << "," << endTime << ")" << " child time:" << startTimeNck << std::endl;
               throw exceptions::RuntimeException(
                 "No nCks for MAX expression: NckExpr: NckExpr(" + child->get()->getId() +
-                ", " + child->get()->getName() + ")");
+                ", " + child->get()->getDescriptiveName() + ")");
             }
             break;
           }
