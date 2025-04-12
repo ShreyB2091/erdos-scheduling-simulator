@@ -7,6 +7,17 @@ def parse_result(path):
         data = f.readlines()
     return data
 
+def parse_slack(data):
+    slacks=[]
+    for row in data:
+        parts = row.split(",")
+        if parts[1] == "TASK_GRAPH_RELEASE":
+            release_time = float(parts[2])
+            deadline = float(parts[3])
+            critical_path_runtime = float(parts[-1])
+            slacks.append(deadline - (release_time + critical_path_runtime))
+    return slacks
+
 def parse_scheduler_runtimes(data, label):
     times=[]
     for row in data:
@@ -40,9 +51,10 @@ if __name__ == "__main__":
         data = parse_result(path)
         slo = parse_slo(data)
         times = parse_scheduler_runtimes(data, path)
+        slacks = parse_slack(data)
         if len(times) == 0:
             results.append((path, 0, 0, 0))
         else:
-            results.append((path, slo, sum(times)/len(times), max(times), min(times)))
+            results.append((path, slo,sum(times)/len(times), max(times), min(times)))
     results = sorted(results, key=lambda x: x[0])
     print(tabulate(results, headers=['path', 'slo', 'avg (s)', 'max (s)', 'min (s)']))
