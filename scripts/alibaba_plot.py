@@ -10,6 +10,14 @@ Here are the invocations:
 You can run all of the configs on a single node though.
 """
 
+
+"""
+Dsched opt re-runs
+
+(shepherd)  python3 scripts/alibaba_plot.py --arrival-rates  "0.0145,0.026" "0.01,0.0165" "0.0135,0.022" "0.01,0.012" "0.012,0.02"
+(inara)     python3 scripts/alibaba_plot.py --arrival-rates  "0.016,0.026" "0.01,0.0175" "0.013,0.025" "0.01,0.014" "0.0135,0.02"
+(mal)       python3 scripts/alibaba_plot.py --arrival-rates  "0.01,0.033" "0.01,0.0345" "0.01,0.0385" "0.01,0.015" "0.015,0.014" "0.014,0.025"
+"""
 #     (0.01, 0.0345),
 #     (0.01, 0.033),
 #     (0.016, 0.026),
@@ -51,37 +59,15 @@ class SchedSpec:
 
 sched_specs = {
     spec.name: spec for spec in [
-        SchedSpec(
-            name="DSched",
-            flags=[
-                "--scheduler=TetriSched",
-                "--enforce_deadlines",
-                "--release_taskgraphs",
-                "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-                "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
-                "--retract_schedules",
-                "--scheduler_max_occupancy_threshold=0.999",
-                "--finer_discretization_at_prev_solution",
-                "--scheduler_selective_rescheduling",
-                "--scheduler_reconsideration_period=0.9",
-                "--scheduler_time_discretization=1",
-                "--scheduler_max_time_discretization=5",
-                "--finer_discretization_window=5",
-                "--scheduler_plan_ahead_no_consideration_gap=2",
-                "--drop_skipped_tasks",
-            ],
-        ),
-
         # SchedSpec(
-        #     name="DSched-noopt",
+        #     name="DSched",
         #     flags=[
         #         "--scheduler=TetriSched",
         #         "--enforce_deadlines",
         #         "--release_taskgraphs",
-        #         # "--opt_passes=CRITICAL_PATH_PASS",
-        #         # "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-        #         # "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #         "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
         #         "--retract_schedules",
         #         "--scheduler_max_occupancy_threshold=0.999",
         #         "--finer_discretization_at_prev_solution",
@@ -94,6 +80,28 @@ sched_specs = {
         #         "--drop_skipped_tasks",
         #     ],
         # ),
+
+        SchedSpec(
+            name="DSched-noopt",
+            flags=[
+                "--scheduler=TetriSched",
+                "--enforce_deadlines",
+                "--release_taskgraphs",
+                # "--opt_passes=CRITICAL_PATH_PASS",
+                # "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+                # "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
+                "--retract_schedules",
+                "--scheduler_max_occupancy_threshold=0.999",
+                "--finer_discretization_at_prev_solution",
+                "--scheduler_selective_rescheduling",
+                "--scheduler_reconsideration_period=0.9",
+                "--scheduler_time_discretization=1",
+                "--scheduler_max_time_discretization=5",
+                "--finer_discretization_window=5",
+                "--scheduler_plan_ahead_no_consideration_gap=2",
+                "--drop_skipped_tasks",
+            ],
+        ),
 
     ]
 }
@@ -156,23 +164,23 @@ def main():
         "--workload_profile_path_labels=easy,medium,hard",
         
         # Loader config
-        "--execution_mode=replay",
-        "--replay_trace=alibaba",
-        "--alibaba_loader_task_cpu_usage_random",
-        "--alibaba_loader_task_cpu_multiplier=1",
-        "--alibaba_loader_task_cpu_usage_min=120",
-        "--alibaba_loader_task_cpu_usage_max=1500",
-        "--alibaba_loader_min_critical_path_runtimes=200,500,600",
-        "--alibaba_loader_max_critical_path_runtimes=500,1000,1000",
-        
-        "--override_release_policies=poisson,poisson,poisson",
-        "--randomize_start_time_max=50",
-        "--min_deadline=5",
-        "--max_deadline=500",
-        "--min_deadline_variances=25,50,10",
-        "--max_deadline_variances=50,100,25",
-        "--enforce_deadlines",
-        "--random_seed=420665456",
+"--execution_mode=replay",
+"--replay_trace=alibaba",
+"--alibaba_loader_task_cpu_usage_random",
+"--alibaba_loader_task_cpu_multiplier=1",
+"--alibaba_loader_task_cpu_usage_min=120",
+"--alibaba_loader_task_cpu_usage_max=1500",
+"--alibaba_loader_min_critical_path_runtimes=200,500,600",
+"--alibaba_loader_max_critical_path_runtimes=500,1000,1000",
+
+"--override_release_policies=poisson,poisson,poisson",
+"--randomize_start_time_max=50",
+"--min_deadline=5",
+"--max_deadline=500",
+"--min_deadline_variances=25,50,10",
+"--max_deadline_variances=50,100,25",
+"--enforce_deadlines",
+"--random_seed=420665456",
 
         # Important: scheduler_runtime=0 is not set!
     ]
