@@ -1,6 +1,7 @@
 import pandas as pd
 from tabulate import tabulate
 import sys
+import numpy as np
 
 def parse_result(path):
     with open(path, "r") as f:
@@ -55,6 +56,24 @@ if __name__ == "__main__":
         if len(times) == 0:
             results.append((path, 0, 0, 0))
         else:
-            results.append((path, slo,sum(times)/len(times), max(times), min(times)))
+            data = np.array(times, dtype=float)
+            mean = np.mean(data)
+            median = np.median(data)
+            p95 = np.percentile(data, 95)
+            p75 = np.percentile(data, 75)
+            p50 = np.percentile(data, 50)
+            p25 = np.percentile(data, 25)
+            results.append((
+                path,
+                slo,
+                mean, median,
+                p95,p75,p50,p25,
+                max(times), min(times)))
     results = sorted(results, key=lambda x: x[0])
-    print(tabulate(results, headers=['path', 'slo', 'avg (s)', 'max (s)', 'min (s)']))
+    print(tabulate(results, headers=[
+        'path',
+        'slo',
+        'mean', 'median',
+        'p95', 'p75', 'p50', 'p25',
+        'max', 'min'
+    ]))
