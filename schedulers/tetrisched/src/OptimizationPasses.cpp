@@ -708,9 +708,9 @@ void DiscretizationSelectorOptimizationPass::runPass(
       std::vector<ExpressionPtr> savedChildren;
       // only keep one nck within every time range
       auto expressionChildren = maxNckExpr->getChildren();
-      // std::sort(expressionChildren.begin(), expressionChildren.end(), [](const ExpressionPtr& a, const ExpressionPtr& b) {
-      //   return a->getTimeBounds().startTimeRange.first < b->getTimeBounds().startTimeRange.first;
-      // });
+      std::sort(expressionChildren.begin(), expressionChildren.end(), [](const ExpressionPtr& a, const ExpressionPtr& b) {
+        return a->getTimeBounds().startTimeRange.first < b->getTimeBounds().startTimeRange.first;
+      });
       auto child = expressionChildren.begin();
       for (auto &[discreteTimeRange, discreteGranularity] : timeRangeToGranularities)
       {

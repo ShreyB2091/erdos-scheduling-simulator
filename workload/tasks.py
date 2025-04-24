@@ -147,6 +147,8 @@ class Task(object):
         # ID of the worker pool on which the task is running.
         self._worker_pool_id = None
 
+        self.dirty = False
+
     def release(self, time: Optional[EventTime] = None):
         """Release the task and transition away from the virtual state.
 
@@ -1420,6 +1422,9 @@ class TaskGraph(Graph[Task]):
             and `False` otherwise.
         """
         return any(task.state == TaskState.SCHEDULED for task in self.get_nodes())
+
+    def dirty_tasks(self):
+        return [task for task in self.get_nodes() if task.dirty]
 
     def is_complete(self) -> bool:
         """Check if the task graph has finished execution.

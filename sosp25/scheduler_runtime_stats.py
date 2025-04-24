@@ -51,7 +51,11 @@ if __name__ == "__main__":
     for path in sys.argv[1:]:
         data = parse_result(path)
         slo = parse_slo(data)
-        times = parse_scheduler_runtimes(data, path)
+        try:
+            times = parse_scheduler_runtimes(data, path)
+        except:
+            print("skipping", path)
+            continue
         slacks = parse_slack(data)
         if len(times) == 0:
             results.append((path, 0, 0, 0))

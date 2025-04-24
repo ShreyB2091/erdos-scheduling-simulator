@@ -34,6 +34,6 @@ traces/alibaba-cluster-trace-v2018/*.pkl
 *.stderr
 *pb2*.py
 .cache
-sosp25/**/*.dot
-sosp25/**/*.conf
 
+# SOSP 25
+sosp25/logs/*

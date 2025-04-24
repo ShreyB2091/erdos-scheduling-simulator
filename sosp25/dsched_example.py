@@ -5,7 +5,7 @@ from scripts.raysearch import run_simulator
 
 
 def main():
-    output_dir = Path(os.path.dirname(os.path.realpath(__file__))) / "output"
+    output_dir = Path(os.path.dirname(os.path.realpath(__file__))) / "logs" / "dsched-example"
     if not output_dir.exists(): output_dir.mkdir(parents=True)
 
     base_flags = [
@@ -38,7 +38,7 @@ def main():
             [
                 *base_flags,
                 "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+                # "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
             ],
         ),
         (
@@ -46,7 +46,7 @@ def main():
             [
                 *base_flags,
                 "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+                # "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
                 "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
             ],
         ),

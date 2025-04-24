@@ -266,6 +266,8 @@ class TetriSchedScheduler(BaseScheduler):
             else _flags.scheduler_time_limit * 1000
         )
 
+        self._scheduler_configuration.numThreads = 32
+
         # NOTE (Sukrit): We observe that solving each TaskGraph independently usually
         # leads to more missed deadlines than required. To offset this, the following
         # parameter sets a threshold until which the scheduler will try to reschedule
@@ -1032,8 +1034,9 @@ class TetriSchedScheduler(BaseScheduler):
                 self._logger.warning(f"[{sim_time.time}] Failed to place any tasks.")
 
         scheduler_end_time = time.time()
-
-        true_runtime = EventTime(int((scheduler_end_time - scheduler_start_time) * 1e6), EventTime.Unit.US)
+        
+        tr = min(int(120*1e6), int((scheduler_end_time - scheduler_start_time) * 1e6))
+        true_runtime = EventTime(tr, EventTime.Unit.US)
 
         # US is considered 1s in the simulator
         # Don't multiple by 1e6 here, because time is already counted in seconds
@@ -1045,10 +1048,18 @@ class TetriSchedScheduler(BaseScheduler):
         )
         
         # Apply filter
-        placements = [p for p in placements if p.task.state < TaskState.SCHEDULED]
+        final_placements = []
+        for p in placements:
+            if p.task.state <= TaskState.SCHEDULED:
+                final_placements.append(p)
+            else:
+                self._logger.debug(
+                    f"Skipping over placement {p}"
+                    f"as state of task {p.task} is > TaskState.SCHEDULED"
+                )
 
         return Placements(
-            runtime=runtime, true_runtime=true_runtime, placements=placements
+            runtime=runtime, true_runtime=true_runtime, placements=final_placements
         )
 
     def _get_time_discretizations_until(
@@ -1700,6 +1711,22 @@ class TetriSchedScheduler(BaseScheduler):
             if not task_graph.is_scheduled():
                 task_graphs_for_scheduling.append(task_graph_name)
                 continue
+
+            dirty_tasks = task_graph.dirty_tasks()
+            self._logger.debug(
+                f"Found dirty tasks in {task_graph_name}"
+                f"{dirty_tasks}"
+            )
+            if len(dirty_tasks) > 0:
+                self._logger.debug(
+                    f"Marking for scheduling {task_graph_name}"
+                    f"{dirty_tasks}"
+                )
+                task_graphs_for_scheduling.append(task_graph_name)
+                for task in dirty_tasks:
+                    task.dirty = False
+                continue
+
             reschedulable_task_graphs.append(task_graph_name)
 
         # If we have less than the sample size, just consider all of them.

@@ -36,7 +36,7 @@ def process_logs(file_path=None):
     records = []
     
     # Read from stdin if no file is specified
-    lines = sys.stdin if file_path is None else open(file_path, 'r')
+    lines = sys.stdin if file_path is None else open(file_path, 'r', encoding='latin-1')
     
     try:
         for line in lines:

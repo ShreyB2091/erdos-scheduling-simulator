@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import random
 import math
+import os
 from datetime import date
 
 
@@ -75,7 +76,9 @@ def run_simulator(label: str, output_dir: Path, flags: list):
             "--flagfile",
             str(conf_file),
         ]
-        subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr).wait()
+        env = os.environ.copy()
+        env["TETRISCHED_LOGGING_DIR"] = str(output_dir)
+        subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr, env=env).wait()
 
     return output_dir
 

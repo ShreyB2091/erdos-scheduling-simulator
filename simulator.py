@@ -714,6 +714,13 @@ class Simulator(object):
         assert (
             not placement.is_placed()
         ), f"Skipping requested for a placed Task {placement.task.unique_name}."
+
+        if placement.task.state not in (TaskState.VIRTUAL, TaskState.RELEASED, TaskState.SCHEDULED):
+            self._logger.debug(
+                f"[{time.to(EventTime.Unit.US).time}] Task {placement.task} is not cancellable. Skipping the skip",
+            )
+            return []
+
         self._logger.debug(
             "[%s] Creating events from the skipping of %s, "
             "with drop_skipped_tasks set to %s.",
@@ -2198,11 +2205,13 @@ class Simulator(object):
             # `placement_time`
             # This scenario happens when the `scheduler_runtime` is non-zero.
             if placement._placement_time and placement._placement_time < placement_time:
-                new_placement_time = (placement._placement_time - self._simulator_time) + placement_time
-                self._logger.warning(
-                    f"[{self._simulator_time}] Placement {placement} is in the past. Updating placement time from {placement._placement_time} to {new_placement_time}"
-                )
+                # new_placement_time = (placement._placement_time - self._simulator_time) + placement_time
+                new_placement_time = placement_time 
                 placement._placement_time = new_placement_time
+                placement.task.dirty = True
+                self._logger.warning(
+                    f"[{self._simulator_time}] Placement {placement} is in the past. Updating placement time from {placement._placement_time} to {new_placement_time} for task {placement.task}"
+                )
 
         # Save the placements until the placement time arrives.
         self._last_scheduler_placements = placements
