@@ -522,18 +522,6 @@ flags.DEFINE_bool(
     "If `True`, the scheduler is allowed to batch tasks "
     "that share a WorkProfile together.",
 )
-flags.DEFINE_bool(
-    "scheduler_selective_rescheduling",
-    False,
-    "If `True`, the supported schedulers will follow some pre-defined strategies for "
-    "selectively sampling TaskGraphs to reschedule.",
-)
-flags.DEFINE_integer(
-    "scheduler_selective_rescheduling_sample_size",
-    5,
-    "If `scheduler_selective_rescheduling` is True, then this flag defines the number "
-    "of TaskGraphs to sample for rescheduling.",
-)
 flags.DEFINE_float(
     "scheduler_reconsideration_period",
     0.1,

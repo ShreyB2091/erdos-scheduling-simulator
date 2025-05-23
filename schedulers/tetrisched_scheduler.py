@@ -249,12 +249,6 @@ class TetriSchedScheduler(BaseScheduler):
                 tetrisched.OptimizationPassCategory.__members__[opt_pass]
             )
 
-        self._selectively_choose_task_graphs_for_rescheduling = (
-            _flags.scheduler_selective_rescheduling if _flags else False
-        )
-        self._selectively_choose_task_graphs_sample_size = (
-            _flags.scheduler_selective_rescheduling_sample_size if _flags else 5
-        )
         self._plan_ahead_multiplier: int = 2
         self._plan_ahead_no_consideration_gap = plan_ahead_no_consideration_gap
 
@@ -684,19 +678,6 @@ class TetriSchedScheduler(BaseScheduler):
             # Keep track of the Tasks that have not been considered for scheduling.
             self._skipped_task_names: Set[str] = set()
             if self.release_taskgraphs:
-                # Find the TaskGraphs that are available for scheduling.
-                task_graphs_for_scheduling = self._choose_task_graphs_for_scheduling(
-                    sim_time, workload, task_graph_names
-                )
-                self._logger.debug(
-                    "[%s] A total of %s TaskGraphs were chosen for scheduling out of "
-                    "%s. These were: %s",
-                    sim_time.time,
-                    len(task_graphs_for_scheduling),
-                    len(task_graph_names),
-                    task_graphs_for_scheduling,
-                )
-
                 # Construct the STRL expressions for each TaskGraph and add them
                 # together in a single objective expression.
                 task_strls: Mapping[str, tetrisched.strl.Expression] = {}
@@ -716,48 +697,6 @@ class TetriSchedScheduler(BaseScheduler):
 
                     # Retrieve the TaskGraph.
                     task_graph = workload.get_task_graph(task_graph_name)
-
-                    # If the TaskGraph has already been scheduled, then we see if we
-                    # need to allow it to be rescheduled based on the given predicate.
-                    if (
-                        self._selectively_choose_task_graphs_for_rescheduling
-                        and task_graph_name not in task_graphs_for_scheduling
-                    ):
-                        self._logger.debug(
-                            f"[{sim_time.time}] Converting TaskGraph {task_graph_name} "
-                            f"to an AllocationExpression because is_scheduled: "
-                            f"{task_graph.is_scheduled()} "
-                            f"and the predicate decided not to reschedule it."
-                        )
-
-                        # This TaskGraph is not to be rescheduled. Just add Allocation
-                        # Expressions for the tasks that have already been placed.
-                        for task in tasks_to_be_scheduled:
-                            if task.task_graph == task_graph_name:
-                                task_strl = self.construct_task_strl(
-                                    sim_time,
-                                    task,
-                                    partitions,
-                                    placement_times_and_rewards,
-                                    retract_schedules=False,
-                                )
-                                if task_strl is not None:
-                                    objective_strl.addChild(task_strl)
-                                else:
-                                    raise RuntimeError(
-                                        f"Could not construct STRL for Task "
-                                        f"{task.unique_name}. This is required for "
-                                        f"previously placed tasks to account for "
-                                        f"correct Allocations."
-                                    )
-                                self._skipped_task_names.add(task.unique_name)
-                                self._logger.debug(
-                                    "[%s] Adding %s to the tasks being "
-                                    "skipped for scheduling.",
-                                    sim_time.time,
-                                    task.unique_name,
-                                )
-                        continue
 
                     # Construct the STRL.
                     scale_factor = self._previously_placed_reward_scale_factor
@@ -1641,125 +1580,6 @@ class TetriSchedScheduler(BaseScheduler):
         # Cache and return the expression for this Task.
         task_strls[task.id] = task_graph_expression
         return task_graph_expression
-
-    def _choose_task_graphs_for_scheduling(
-        self,
-        current_time: EventTime,
-        workload: Workload,
-        task_graph_names: List[str],
-    ) -> List[str]:
-        """Find the TaskGraphs that are to be scheduled in this cycle.
-
-        Args:
-            current_time (`EventTime`): The time at which the scheduling is occurring.
-            workload (`Workload`): The workload instance associated with this run of
-                the scheduling cycle.
-            task_graph_names (`List[str]`): The names of the TaskGraphs that are
-                available for scheduling in this cycle.
-        """
-        reschedulable_task_graphs = []
-        task_graphs_for_scheduling = []
-        for task_graph_name in task_graph_names:
-            # Find the TaskGraph.
-            task_graph = workload.get_task_graph(task_graph_name)
-            if task_graph is None:
-                raise ValueError(
-                    f"Could not find the TaskGraph {task_graph_name} in the workload."
-                )
-
-            # If the Taskgraph hasn't been previously scheduled, then it's always
-            # available for scheduling.
-            if not task_graph.is_scheduled():
-                task_graphs_for_scheduling.append(task_graph_name)
-                continue
-            reschedulable_task_graphs.append(task_graph_name)
-
-        # If we have less than the sample size, just consider all of them.
-        if (
-            len(reschedulable_task_graphs)
-            <= self._selectively_choose_task_graphs_sample_size
-        ):
-            task_graphs_for_scheduling.extend(reschedulable_task_graphs)
-            return task_graphs_for_scheduling
-
-        # Strategy 1: We do not reconsider the TaskGraphs for scheduling that have
-        # a very low slack between their release time and the deadline given their
-        # critical path.
-        # allowed_slack = 1.20 # 20% slack from critical path runtime.
-        # should_reschedule = (
-        #     task_graph.deadline.time
-        #     >= task_graph.release_time.time
-        #     + task_graph.critical_path_runtime.time * allowed_slack
-        # )
-
-        # Strategy 2: We try to only allow rescheduling of the TaskGraphs whose prior
-        # placements of the sinks have a large slack between their deadline as a
-        # percentage of their critical path runtime.
-        # allowed_slack = 0.20  # 20% slack from critical path runtime.
-        # completion_slack = min(
-        #     [
-        #         task_graph.deadline.time
-        #         - (
-        #             task.current_placement.placement_time.time
-        #             + task.current_placement.execution_strategy.runtime.time
-        #         )
-        #         for task in task_graph.get_sink_tasks()
-        #     ]
-        # )
-        # should_reschedule = (
-        #     completion_slack >= task_graph.critical_path_runtime.time * allowed_slack
-        # )
-
-        # Strategy 3: Choose the TaskGraphs to be scheduled randomly with the given
-        # sample size.
-        task_graphs_for_scheduling.extend(
-            np.random.choice(
-                reschedulable_task_graphs,
-                self._selectively_choose_task_graphs_sample_size,
-                replace=False,
-            )
-        )
-
-        # Strategy 4: Flip a random biased coin with a probability proportional to the
-        # remaining slack in the task graph. The higher the slack, the higher the
-        # probability of rescheduling.
-        # slacks = []
-        # total_slack = 0
-        # for task_graph_name in reschedulable_task_graphs:
-        #     schedulable_task_graph = workload.get_task_graph(task_graph_name)
-        #     if schedulable_task_graph is None:
-        #         raise ValueError(
-        #             f"Could not find the TaskGraph {task_graph_name} in the workload."
-        #         )
-        #     slack = max(0, (schedulable_task_graph.deadline - current_time).time)
-        #     slacks.append(slack)
-        #     total_slack += slack
-
-        # task_graphs_for_scheduling.extend(
-        #     np.random.choice(
-        #         reschedulable_task_graphs,
-        #         self._selectively_choose_task_graphs_sample_size,
-        #         replace=False,
-        #         p=[slack / total_slack for slack in slacks],
-        #     )
-        # )
-
-        # coin_probability = 0.5
-        # total_slack = sum(slacks)
-        # if total_slack > 0:
-        #     coin_probability = (task_graph.deadline - current_time).time / total_slack
-        # self._logger.debug(
-        #     "[%s] The slack for TaskGraph %s was %s. The total slack was %s. "
-        #     "The coin probability was %s.",
-        #     current_time.time,
-        #     task_graph.name,
-        #     task_graph.deadline - current_time,
-        #     total_slack,
-        #     coin_probability,
-        # )
-        # should_reschedule = random.random() < coin_probability
-
-        return task_graphs_for_scheduling
 
     def construct_task_graph_strl(
         self,
