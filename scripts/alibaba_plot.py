@@ -44,6 +44,14 @@ Dsched opt re-runs
 (mal)       python3 scripts/alibaba_plot.py --arrival-rates  "0.01,0.033" "0.01,0.0385" "0.015,0.014"
 """
 
+"""
+More re-runs. Some investigative runs
+
+python3 scripts/alibaba_plot.py --arrival-rates  "0.012,0.02"
+
+python3 scripts/alibaba_plot.py --arrival-rates  "0.015,0.014" "0.0135,0.022" "0.012,0.02"
+"""
+
 
 
 import argparse
@@ -72,27 +80,27 @@ class SchedSpec:
 
 sched_specs = {
     spec.name: spec for spec in [
-        SchedSpec(
-            name="DSched",
-            flags=[
-                "--scheduler=TetriSched",
-                "--enforce_deadlines",
-                "--release_taskgraphs",
-                "--opt_passes=CRITICAL_PATH_PASS",
-                "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
-                "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
-                "--retract_schedules",
-                "--scheduler_max_occupancy_threshold=0.999",
-                "--finer_discretization_at_prev_solution",
-                "--scheduler_selective_rescheduling",
-                "--scheduler_reconsideration_period=0.9",
-                "--scheduler_time_discretization=1",
-                "--scheduler_max_time_discretization=5",
-                "--finer_discretization_window=5",
-                "--scheduler_plan_ahead_no_consideration_gap=2",
-                "--drop_skipped_tasks",
-            ],
-        ),
+        # SchedSpec(
+        #     name="DSched",
+        #     flags=[
+        #         "--scheduler=TetriSched",
+        #         "--enforce_deadlines",
+        #         "--release_taskgraphs",
+        #         "--opt_passes=CRITICAL_PATH_PASS",
+        #         "--opt_passes=CAPACITY_CONSTRAINT_PURGE_PASS",
+        #         "--opt_passes=DYNAMIC_DISCRETIZATION_PASS",
+        #         "--retract_schedules",
+        #         "--scheduler_max_occupancy_threshold=0.999",
+        #         "--finer_discretization_at_prev_solution",
+        #         "--scheduler_selective_rescheduling",
+        #         "--scheduler_reconsideration_period=0.9",
+        #         "--scheduler_time_discretization=1",
+        #         "--scheduler_max_time_discretization=5",
+        #         "--finer_discretization_window=5",
+        #         "--scheduler_plan_ahead_no_consideration_gap=5",
+        #         "--drop_skipped_tasks",
+        #     ],
+        # ),
 
         SchedSpec(
             name="DSched-noopt",
@@ -106,13 +114,14 @@ sched_specs = {
                 "--retract_schedules",
                 "--scheduler_max_occupancy_threshold=0.999",
                 "--finer_discretization_at_prev_solution",
-                "--scheduler_selective_rescheduling",
+                # "--scheduler_selective_rescheduling",
                 "--scheduler_reconsideration_period=0.9",
                 "--scheduler_time_discretization=1",
                 "--scheduler_max_time_discretization=5",
                 "--finer_discretization_window=5",
                 "--scheduler_plan_ahead_no_consideration_gap=2",
                 "--drop_skipped_tasks",
+                "--scheduler_time_limit=120",
             ],
         ),
 
@@ -164,13 +173,13 @@ def main():
         arrival_rates = ARRIVAL_RATES
 
 
-    exp_dir = Path("alibaba_scheduler_runtime-dsched+hetero")
+    exp_dir = Path("alibaba_scheduler_runtime-dsched+bugfix")
     if not exp_dir.exists(): exp_dir.mkdir(parents=True)
 
     # Base alibaba workload flags
     base_flags = [
         # Worker config
-        "--worker_profile_path=profiles/workers/alibaba_cluster_final_hetero.yaml",
+        "--worker_profile_path=profiles/workers/alibaba_cluster_final.yaml",
         
         # Workload config
         "--workload_profile_paths=traces/alibaba-cluster-trace-v2018/easy_dag_sukrit_10k.pkl,traces/alibaba-cluster-trace-v2018/medium_dag_sukrit_10k.pkl,traces/alibaba-cluster-trace-v2018/hard_dag_sukrit_10k.pkl",
@@ -192,11 +201,10 @@ def main():
 "--randomize_start_time_max=50",
 "--min_deadline=5",
 "--max_deadline=500",
-"--min_deadline_variances=25,10,10",
-"--max_deadline_variances=50,25,25",
+"--min_deadline_variances=25,50,10",
+"--max_deadline_variances=50,100,25",
 "--enforce_deadlines",
 "--random_seed=420665456",
-
         # Important: scheduler_runtime=0 is not set!
     ]
 
