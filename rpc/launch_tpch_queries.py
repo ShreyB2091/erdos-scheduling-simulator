@@ -4,6 +4,7 @@ import random
 import subprocess
 import sys
 import time
+import json
 import numpy as np
 
 from pathlib import Path
@@ -23,8 +24,8 @@ def map_dataset_to_deadline(dataset_size):
     return mapping.get(dataset_size, 120)  # Default to 120s if dataset size is NA
 
 
-def launch_query(query_number, index, args):
-    deadline = map_dataset_to_deadline(args.dataset_size)
+def launch_query(query_number, deadline, dataset_size, max_cores, args):
+    spark_deadline = map_dataset_to_deadline(args.dataset_size)
 
     cmd = [
         f"{args.spark_mirror_path.resolve()}/bin/spark-submit",
@@ -39,13 +40,13 @@ def launch_query(query_number, index, args):
         *("--conf", "'spark.sql.shuffle.partitions=1'"),
         *("--conf", "'spark.sql.files.minPartitionNum=1'"),
         *("--conf", "'spark.sql.files.maxPartitionNum=1'"),
-        *("--conf", f"'spark.app.deadline={deadline}'"),
+        *("--conf", f"'spark.app.deadline={spark_deadline}'"),
         *("--class", "'main.scala.TpchQuery'"),
         f"{args.tpch_spark_path.resolve()}/target/scala-2.13/spark-tpc-h-queries_2.13-1.0.jar",
         f"{query_number}",
-        f"{index}",
-        f"{args.dataset_size}",
-        f"{args.max_cores}",
+        f"{deadline}",
+        f"{dataset_size}",
+        f"{max_cores}",
     ]
 
     # print(
@@ -64,54 +65,6 @@ def launch_query(query_number, index, args):
         return p
     except Exception as e:
         print(f"Error launching query: {e}")
-
-
-def generate_release_times(rng, args):
-    if args.distribution == "periodic":
-        release_policy_args = {
-            "period": EventTime(args.period, EventTime.Unit.US),
-        }
-    elif args.distribution == "fixed":
-        release_policy_args = {
-            "period": EventTime(args.period, EventTime.Unit.US),
-            "num_invocations": args.num_queries,
-        }
-    elif args.distribution == "poisson":
-        release_policy_args = {
-            "rate": args.variable_arrival_rate,
-            "num_invocations": args.num_queries,
-        }
-    elif args.distribution == "gamma":
-        release_policy_args = {
-            "rate": args.variable_arrival_rate,
-            "num_invocations": args.num_queries,
-            "coefficient": args.coefficient,
-        }
-    elif args.distribution == "fixed_gamma":
-        release_policy_args = {
-            "variable_arrival_rate": args.variable_arrival_rate,
-            "base_arrival_rate": args.base_arrival_rate,
-            "num_invocations": args.num_queries,
-            "coefficient": args.coefficient,
-        }
-    else:
-        raise NotImplementedError(
-            f"Release policy {args.distribution} not implemented."
-        )
-
-    release_policy = make_release_policy(
-        args.distribution,
-        release_policy_args,
-        rng,
-        args.rng_seed,
-        (args.randomize_start_time_min, args.randomize_start_time_max),
-    )
-
-    release_times = release_policy.get_release_times(
-        completion_time=EventTime(sys.maxsize, EventTime.Unit.US)
-    )
-
-    return release_times
 
 
 def main():
@@ -143,64 +96,10 @@ def main():
         help="Path to directory in which to Spark event logs will be dumped",
     )
     parser.add_argument(
-        "--distribution",
-        choices=["periodic", "fixed", "poisson", "gamma", "closed_loop", "fixed_gamma"],
-        default="gamma",
-        help="Type of distribution for query inter-arrival times (default: gamma)",
-    )
-    parser.add_argument(
-        "--num_queries",
-        type=int,
-        default=50,
-        help="Number of queries to generate (default: 50)",
-    )
-    parser.add_argument(
-        "--dataset_size",
-        choices=["50", "100", "250", "500"],
-        default="50",
-        help="Dataset size per query in GB (default: 50)",
-    )
-    parser.add_argument(
-        "--max_cores",
-        type=int,
-        choices=[50, 75, 100, 200],
-        default=50,
-        help="Maximum executor cores (default: 50)",
-    )
-    parser.add_argument(
-        "--period",
-        type=int,
-        default=25,
-        help="Releases a DAG after period time has elapsed",
-    )
-    parser.add_argument(
-        "--variable_arrival_rate",
-        type=float,
-        default=1.0,
-        help="Variable arrival rate for poisson and gamma distributions",
-    )
-    parser.add_argument(
-        "--coefficient",
-        type=float,
-        default=1.0,
-        help="Coefficient for poisson and gamma distributions",
-    )
-    parser.add_argument(
-        "--base_arrival_rate",
-        type=float,
-        default=1.0,
-        help="Base arrival rate for fixed_gamma distribution",
-    )
-    parser.add_argument("--randomize_start_time_min", type=int, default=0)
-    parser.add_argument("--randomize_start_time_max", type=int, default=0)
-    parser.add_argument(
-        "--rng_seed",
-        type=int,
-        default=1234,
-        help="RNG seed for generating inter-arrival periods and picking DAGs (default: 1234)",
-    )
-    parser.add_argument(
-        "--queries", type=int, nargs="+", help="Launch specific queries"
+        "--workload-spec",
+        type=Path,
+        help="JSON file specifying the workload to launch, generated by "
+        "scripts/generate_workload_spec.py"
     )
 
     args = parser.parse_args()
@@ -210,14 +109,10 @@ def main():
 
     os.environ["TPCH_INPUT_DATA_DIR"] = str(args.tpch_spark_path.resolve() / "dbgen")
 
-    if args.queries:
-        assert len(queries) == args.num_queries
+    with open(args.workload_spec) as f:
+        workload_spec = json.load(f)
 
-    rng = random.Random(args.rng_seed)
-
-    # Generate release times
-    release_times = generate_release_times(rng, args)
-    print("Release times:", release_times)
+    release_times = [q["release_time"] for q in workload_spec.queries]
 
     # Launch queries
     ps = []
@@ -226,17 +121,20 @@ def main():
         inter_arrival_times.append(release_times[i + 1].time - release_times[i].time)
     for i, inter_arrival_time in enumerate(inter_arrival_times):
         time.sleep(inter_arrival_time)
-        if args.queries:
-            query_number = args.queries[i]
-        else:
-            query_number = rng.randint(1, 22)
-        ps.append(launch_query(query_number, i, args))
+        query = workload_spec.workload[i]
+        ps.append(launch_query(
+            query_number=query.query_number,
+            deadline=query.deadline,
+            dataset_size=workload_spec.dataset_size,
+            max_cores=workload_spec.max_cores,
+            args,
+        ))
         print(
             f"({i+1}/{len(release_times)})",
             "Current time: ",
             time.strftime("%Y-%m-%d %H:%M:%S"),
             " launching query: ",
-            query_number,
+            query.query_number,
         )
 
     for p in ps:

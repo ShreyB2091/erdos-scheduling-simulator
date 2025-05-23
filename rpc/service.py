@@ -399,21 +399,20 @@ class Servicer(erdos_scheduler_pb2_grpc.SchedulerServiceServicer):
         if request.name.startswith("TPCH Query"):
             # Parse request name
             query_parts = request.name.split()
+            # By default, let the simulator decide the deadline
+            deadline = None
             match query_parts:
-                case _, _, query_num, index, dataset_size, max_executors_per_job:
+                case _, _, query_num, deadline, dataset_size, max_executors_per_job:
                     query_num = int(query_num)
+                    deadline = EventTime(int(deadline), EventTime.Unit.US)
                     dataset_size = int(dataset_size)
                     max_executors_per_job = int(max_executors_per_job)
                 case _, _, query_num, dataset_size, max_executors_per_job:
                     query_num = int(query_num)
-                    # default index counts up from 0; incorrect if
-                    # Spark receives jobs out of order
-                    index = str(len(self._registered_applications))
                     dataset_size = int(dataset_size)
                     max_executors_per_job = int(max_executors_per_job)
                 case _, _, query_num:
                     query_num = int(query_num)
-                    index = str(len(self._registered_applications))
                     dataset_size = FLAGS.tpch_dataset_size
                     max_executors_per_job = FLAGS.tpch_max_executors_per_job
                 case _:
@@ -433,12 +432,11 @@ class Servicer(erdos_scheduler_pb2_grpc.SchedulerServiceServicer):
                 )
 
             # Create a job graph
-            self._logger.debug(str((query_num, index, dataset_size, max_executors_per_job)))
             try:
                 job_graph, stage_id_mapping = self._data_loaders[
                     DataLoader.TPCH
                 ].make_job_graph(
-                    id=index,
+                    id=request.id,
                     query_num=query_num,
                     dependencies=dependencies,
                     dataset_size=dataset_size,
@@ -462,6 +460,7 @@ class Servicer(erdos_scheduler_pb2_grpc.SchedulerServiceServicer):
             def gen(release_time):
                 task_graph = job_graph.get_next_task_graph(
                     start_time=release_time,
+                    deadline=deadline,
                     _flags=FLAGS,
                 )
                 return task_graph, stage_id_mapping

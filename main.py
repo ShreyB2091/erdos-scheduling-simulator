@@ -190,6 +190,11 @@ flags.DEFINE_string(
     "by colons, and each bucket is a comma-delimited sequence of integers "
     "identifying the query numbers for that bucket."
 )
+flags.DEFINE_string(
+    "tpch_workload_spec",
+    "",
+    "Path to a JSON file specifying the TPC-H workload to run the simulator against",
+)
 
 # AlibabaLoader related flags.
 flags.DEFINE_integer(
