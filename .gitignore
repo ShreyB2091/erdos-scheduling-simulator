@@ -29,3 +29,10 @@ schedulers/tetrisched/build/*
 experiments/*
 traces/alibaba-cluster-trace-v2018/job_dag_files_6600_groups/*
 traces/alibaba-cluster-trace-v2018/*.pkl
+
+# Ignore protobuf generatred files
+*_pb2.py
+*_pb2_grpc.py
+
+# Cache
+.cache
