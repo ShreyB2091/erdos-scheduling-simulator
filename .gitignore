@@ -6,13 +6,16 @@
 .vscode
 
 # Benchmarking simulator configuration files.
-/*.conf
-/*.csv
-/*.json
-/*.log
-/*.dot
+
+*.json
+*.dot
+*.csv
+*.log
+*.conf
+
 /*.png
 /*.pdf
+
 
 # Virtual environment.
 venv
@@ -36,3 +39,12 @@ traces/alibaba-cluster-trace-v2018/*.pkl
 
 # Cache
 .cache
+
+# Tetrisched files
+tetrisched_*.log
+libtetrisched_performance.csv
+tetrisched_*.dot
+
+# Stderr and Stdout files
+*.stderr
+*.stdout

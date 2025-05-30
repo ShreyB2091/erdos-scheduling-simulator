@@ -5,6 +5,7 @@ import subprocess
 import shutil
 import random
 import math
+import os
 from datetime import date
 
 
@@ -43,26 +44,31 @@ def generate_workload(output_dir: Path, flags: list, label="workload") -> Path:
 
 
 def run_simulator(label: str, output_dir: Path, flags: list):
+    output_dir = (output_dir/label)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    def absp(p):
+        return output_dir / p
+
     def outp(ext):
-        return (output_dir / f"{label}.{ext}").resolve()
+        return f"{label}.{ext}"
 
     log_file = outp("log")
     csv_file = outp("csv")
     flags.extend(
         [
+            f"--log_dir={output_dir.resolve()}",
             f"--log={log_file}",
             "--log_level=debug",
             f"--csv={csv_file}",
         ]
     )
-    conf_file = outp("conf")
+    conf_file = absp(outp("conf"))
     with open(conf_file, "w") as f:
         f.write("\n".join(str(flag) for flag in flags))
         f.write("\n")
 
-    stdout, stderr = outp("stdout"), outp("stderr")
+    stdout, stderr = absp(outp("stdout")), absp(outp("stderr"))
     with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
         cmd = [
             "python3",
@@ -70,7 +76,9 @@ def run_simulator(label: str, output_dir: Path, flags: list):
             "--flagfile",
             str(conf_file),
         ]
-        subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr).wait()
+        env = os.environ.copy()
+        env["TETRISCHED_LOGGING_DIR"] = str(output_dir)
+        subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr, env=env).wait()
 
     return output_dir
 
@@ -107,7 +115,7 @@ def parse_analysis(result: Path):
     return {"avg": avg, "eff": eff}
 
 
-def parse_slo(result: Path):
+def parse_simulator_result(result: Path):
     with open(result, "r") as f:
         data = reversed(f.readlines())
     slo = None
@@ -122,14 +130,30 @@ def parse_slo(result: Path):
             slo = (finished - missed) / (finished + cancelled) * 100
             slo = float(parts[8])
             break
-    return slo
+    scheduler_runtimes = []
+    for line in data:
+        parts = line.split(",")
+        if parts[1] == "SCHEDULER_FINISHED" and (int(parts[3]) != 0 or int(parts[4]) != 0):
+            scheduler_runtimes.append(float(parts[-1]))
+    return {
+        "slo": slo,
+        "scheduler_runtimes": scheduler_runtimes,
+    }
 
 
 def run_and_analyze(label: str, output_dir: Path, flags: list):
     sim = run_simulator(label, output_dir, flags)
     analysis = run_analysis(label, sim)
-    return parse_slo(sim / f"{label}.csv"), parse_analysis(analysis / f"{label}.stdout")
 
+    sim_results = parse_simulator_result(sim / f"{label}.csv")
+    avg_scheduler_runtime = 0.0
+    if len(sim_results["scheduler_runtimes"]) > 0:
+        avg_scheduler_runtime = sum(sim_results["scheduler_runtimes"]) / len(sim_results["scheduler_runtimes"])
+    return {
+        "slo": sim_results["slo"],
+        "avg_scheduler_runtime": avg_scheduler_runtime,
+        "analysis": parse_analysis(analysis / f"{label}.stdout")
+    }
 
 def run_edf(output_dir: Path, flags: list):
     output_dir = output_dir / "edf"
@@ -280,8 +304,11 @@ def objective(config, experiment_dir):
         "--tpch_max_executors_per_job", config["tpch_max_executors_per_job"],
     ]
 
-    edf_slo, edf_analysis = run_edf(output_dir, sim_flags)
-    dsched_slo, dsched_analysis = run_dsched(output_dir, sim_flags)
+    result_edf = run_edf(output_dir, sim_flags)
+    result_dsched = run_edf(output_dir, sim_flags)
+
+    edf_slo, edf_analysis = result_edf["slo"], result_edf["analysis"]
+    dsched_slo, dsched_analysis = result_dsched["slot"], result_dsched["analysis"]
 
     metric = (
         (150 * math.log(dsched_slo / 0.8) if dsched_slo < 0.8 else 0) # penalize for dsched going below 80%
