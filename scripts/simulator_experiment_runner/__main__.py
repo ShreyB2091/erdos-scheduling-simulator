@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 
-from scripts.raysearch import run_and_analyze
+from scripts.run_utils import run_and_analyze
 
 
 import yaml
@@ -27,7 +27,7 @@ def parse_experiment_config(config_path: Path) -> Dict[str, Any]:
     fields = set(data.keys())
 
     # Validate fields
-    required_fields = {"base_flags", "schedulers", "matrix", "naming"}
+    required_fields = {"base_flags", "schedulers", "matrix"}
     optional_fields = {"multi_enum_flags"}
     valid_fields = required_fields | optional_fields
 
@@ -145,8 +145,12 @@ def generate_experiment_matrix(config: Dict[str, Any]) -> List[Dict[str, Any]]:
         for scheduler in config["schedulers"]:
             experiment = {
                 "name": None,  # Will be set after we have the param dict
+                "scheduler": None,
                 "flags": [],
             }
+
+            # Set scheduler
+            experiment["scheduler"] = scheduler["name"]
 
             # Add base flags
             for flag_name, flag_value in config["base_flags"].items():
@@ -163,11 +167,8 @@ def generate_experiment_matrix(config: Dict[str, Any]) -> List[Dict[str, Any]]:
                 param_dict[param_name] = format_flag_value(param_value, delim="~")
 
             # Set experiment name using the param_dict
-            name = config["naming"].format(scheduler=scheduler["name"], **param_dict)
-            if "," in name:
-                raise ValueError(
-                    f"Invalid experiment name '{name}'. Must not contain ','"
-                )
+            name = "+".join([f"{key}={value}" for key, value in param_dict.items()])
+            assert "," not in name, f"Generated invalid experiment name '{name}'. Must not contain ','"
             experiment["name"] = name
 
             experiments.append(experiment)
@@ -177,6 +178,7 @@ def generate_experiment_matrix(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def run_job(experiment: Dict[str, Any], output_dir: Path):
     try:
+        output_dir = output_dir / experiment["scheduler"]
         result = run_and_analyze(
             label=experiment["name"],
             output_dir=output_dir,
@@ -184,6 +186,7 @@ def run_job(experiment: Dict[str, Any], output_dir: Path):
         )
         return {
             "experiment": experiment,
+            "output_dir": output_dir,
             "result": result,
         }
     except Exception as e:
@@ -228,12 +231,14 @@ def prepare_output_directory(output_dir: Path):
 
 
 def run_experiment(
-    experiment: List[Dict[str, Any]], output_dir: Path, num_workers: int
-):
+    experiment: List[Dict[str, Any]], output_dir: Path, num_workers: int, config_path: Path):
     def task(job):
         return run_job(job, output_dir)
 
     prepare_output_directory(output_dir)
+
+    # Copy config to output directory for future reference
+    shutil.copy(config_path, output_dir / "config.yaml")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         results = list(tqdm(executor.map(task, experiment), total=len(experiment)))
@@ -284,7 +289,9 @@ def main():
         print(f"Total jobs to run: {len(experiment)}\n")
 
         for i, job in enumerate(experiment, 1):
-            print(f"Job {i}: {job['name']}")
+            print(f"Job {i}")
+            print(f"  Name: {job['name']}")
+            print(f"  Scheduler: {job['scheduler']}")
             print(f"  Flags:")
             for flag in job["flags"]:
                 print(f"    {flag}")
@@ -298,7 +305,7 @@ def main():
     print(f"Dumping output to '{args.output_dir.resolve()}'")
 
     try:
-        run_experiment(experiment, args.output_dir, args.num_workers)
+        run_experiment(experiment, args.output_dir, args.num_workers, args.config)
         print(
             f"Successfully ran experiment. Results are available at '{args.output_dir.resolve()}'"
         )
