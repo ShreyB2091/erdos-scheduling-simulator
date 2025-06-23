@@ -11,6 +11,10 @@ from datetime import date
 
 from pathlib import Path
 
+
+from scripts.run_utils import *
+
+
 import ray
 import numpy as np
 
@@ -23,137 +27,6 @@ from ray.tune.search.hyperopt import HyperOptSearch
 from ray.tune import Trainable
 from ray.train import RunConfig
 
-
-def generate_workload(output_dir: Path, flags: list, label="workload") -> Path:
-    # Not used by ray, but useful to reference during analysis
-    conf_file = output_dir / f"{label}-workload-spec.conf"
-    with open(conf_file, "w") as f:
-        f.write("\n".join(str(flag) for flag in flags))
-        f.write("\n")
-
-    spec_file = output_dir / f"{label}.json"
-    with open(spec_file, "w") as f:
-        cmd = [
-            "python3",
-            "-m",
-            "scripts.generate_workload_spec",
-            *(str(flag) for flag in flags),
-        ]
-        subprocess.Popen(cmd, stdout=f).wait()
-    return spec_file
-
-
-def run_simulator(label: str, output_dir: Path, flags: list):
-    output_dir = (output_dir/label)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    def absp(p):
-        return output_dir / p
-
-    def outp(ext):
-        return f"{label}.{ext}"
-
-    log_file = outp("log")
-    csv_file = outp("csv")
-    flags.extend(
-        [
-            f"--log_dir={output_dir.resolve()}",
-            f"--log={log_file}",
-            "--log_level=debug",
-            f"--csv={csv_file}",
-        ]
-    )
-    conf_file = absp(outp("conf"))
-    with open(conf_file, "w") as f:
-        f.write("\n".join(str(flag) for flag in flags))
-        f.write("\n")
-
-    stdout, stderr = absp(outp("stdout")), absp(outp("stderr"))
-    with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
-        cmd = [
-            "python3",
-            "main.py",
-            "--flagfile",
-            str(conf_file),
-        ]
-        env = os.environ.copy()
-        env["TETRISCHED_LOGGING_DIR"] = str(output_dir)
-        subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr, env=env).wait()
-
-    return output_dir
-
-
-def run_analysis(label: str, results_dir: Path):
-    output_dir = results_dir / "analysis"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    def outp(ext):
-        return (output_dir / f"{label}.{ext}").resolve()
-
-    stdout, stderr = outp("stdout"), outp("stderr")
-    with open(stdout, "w") as f_stdout, open(stderr, "w") as f_stderr:
-        cmd = [
-            "python3",
-            "analyze.py",
-            f"--csv_files={results_dir}/{label}.csv",
-            f"--conf_files={results_dir}/{label}.conf",
-            f"--output_dir={output_dir}",
-            "--goodresource_utilization",
-        ]
-        subprocess.Popen(cmd, stdout=f_stdout, stderr=f_stderr).wait()
-
-    return output_dir
-
-
-def parse_analysis(result: Path):
-    with open(result, "r") as f:
-        data = f.read()
-    eff = float(
-        re.search(r"Average Good Utilization:\s+([-+]?\d*\.\d+|\d+)", data).group(1)
-    )
-    avg = float(re.search(r"Average Utilization:\s+([-+]?\d*\.\d+|\d+)", data).group(1))
-    return {"avg": avg, "eff": eff}
-
-
-def parse_simulator_result(result: Path):
-    with open(result, "r") as f:
-        data = reversed(f.readlines())
-    slo = None
-    for line in data:
-        parts = line.split(",")
-        if len(parts) < 1:
-            break
-        if parts[1] == "LOG_STATS":
-            finished = float(parts[5])
-            cancelled = float(parts[6])
-            missed = float(parts[7])
-            slo = (finished - missed) / (finished + cancelled) * 100
-            slo = float(parts[8])
-            break
-    scheduler_runtimes = []
-    for line in data:
-        parts = line.split(",")
-        if parts[1] == "SCHEDULER_FINISHED" and (int(parts[3]) != 0 or int(parts[4]) != 0):
-            scheduler_runtimes.append(float(parts[-1]))
-    return {
-        "slo": slo,
-        "scheduler_runtimes": scheduler_runtimes,
-    }
-
-
-def run_and_analyze(label: str, output_dir: Path, flags: list):
-    sim = run_simulator(label, output_dir, flags)
-    analysis = run_analysis(label, sim)
-
-    sim_results = parse_simulator_result(sim / f"{label}.csv")
-    avg_scheduler_runtime = 0.0
-    if len(sim_results["scheduler_runtimes"]) > 0:
-        avg_scheduler_runtime = sum(sim_results["scheduler_runtimes"]) / len(sim_results["scheduler_runtimes"])
-    return {
-        "slo": sim_results["slo"],
-        "avg_scheduler_runtime": avg_scheduler_runtime,
-        "analysis": parse_analysis(analysis / f"{label}.stdout")
-    }
 
 def run_edf(output_dir: Path, flags: list):
     output_dir = output_dir / "edf"
@@ -196,14 +69,11 @@ def generate_search_space():
     return {
         "min_deadline_variance": 10,
         "max_deadline_variance": 25,
-
         "easy_ar_weight": tune.uniform(0, 1),
         "med_ar_weight": tune.uniform(0, 1),
         "hard_ar_weight": tune.uniform(0, 1),
-
         "arrival_rate": tune.uniform(0.022, 0.055),
         "invocations": 220,
-
         "tpch_max_executors_per_job": tune.choice((75, 100, 200)),
         "tpch_dataset_size": tune.choice((100, 250)),
     }
@@ -219,73 +89,90 @@ def generate_partition_string(difficulty_dict):
     :return: Formatted partition string
     """
     # Convert each difficulty list to comma-separated strings
-    easy_str = ','.join(map(str, difficulty_dict['easy']))
-    medium_str = ','.join(map(str, difficulty_dict['medium']))
-    hard_str = ','.join(map(str, difficulty_dict['hard']))
+    easy_str = ",".join(map(str, difficulty_dict["easy"]))
+    medium_str = ",".join(map(str, difficulty_dict["medium"]))
+    hard_str = ",".join(map(str, difficulty_dict["hard"]))
 
     # Combine with : delimiter
     return f"{easy_str}:{medium_str}:{hard_str}"
 
 
 query_difficulty_map = {
-        (100, 75): {
-            'easy': [11, 13, 14, 15, 19, 20, 22],
-            'medium': [1, 2, 4, 6, 10, 12, 16, 17, 18],
-            'hard': [3, 5, 7, 8, 9, 21]
-        },
-        (100, 100): {
-            'easy': [2, 11, 13, 16, 19, 22],
-            'medium': [1, 4, 6, 10, 12, 14, 15, 17, 20],
-            'hard': [3, 5, 7, 8, 9, 18, 21]
-        },
-        (100, 200): {
-            'easy': [6, 11, 13, 19, 22],
-            'medium': [1, 2, 4, 10, 12, 14, 15, 16, 20],
-            'hard': [3, 5, 7, 8, 9, 17, 18, 21]
-        },
-        (250, 75): {
-            'easy': [2, 11, 13, 16, 19, 22],
-            'medium': [1, 6, 7, 10, 12, 14, 15, 20],
-            'hard': [3, 4, 5, 8, 9, 17, 18, 21]
-        },
-        (250, 100): {
-            'easy': [2, 11, 13, 16, 19, 22],
-            'medium': [1, 6, 10, 12, 14, 15, 20],
-            'hard': [3, 4, 5, 7, 8, 9, 17, 18, 21]
-        },
-        (250, 200): {
-            'easy': [1, 2, 6, 11, 13, 16, 22],
-            'medium': [4, 7, 10, 12, 14, 15, 19, 20],
-            'hard': [3, 5, 8, 9, 17, 18, 21]
-        }
-    }
+    (100, 75): {
+        "easy": [11, 13, 14, 15, 19, 20, 22],
+        "medium": [1, 2, 4, 6, 10, 12, 16, 17, 18],
+        "hard": [3, 5, 7, 8, 9, 21],
+    },
+    (100, 100): {
+        "easy": [2, 11, 13, 16, 19, 22],
+        "medium": [1, 4, 6, 10, 12, 14, 15, 17, 20],
+        "hard": [3, 5, 7, 8, 9, 18, 21],
+    },
+    (100, 200): {
+        "easy": [6, 11, 13, 19, 22],
+        "medium": [1, 2, 4, 10, 12, 14, 15, 16, 20],
+        "hard": [3, 5, 7, 8, 9, 17, 18, 21],
+    },
+    (250, 75): {
+        "easy": [2, 11, 13, 16, 19, 22],
+        "medium": [1, 6, 7, 10, 12, 14, 15, 20],
+        "hard": [3, 4, 5, 8, 9, 17, 18, 21],
+    },
+    (250, 100): {
+        "easy": [2, 11, 13, 16, 19, 22],
+        "medium": [1, 6, 10, 12, 14, 15, 20],
+        "hard": [3, 4, 5, 7, 8, 9, 17, 18, 21],
+    },
+    (250, 200): {
+        "easy": [1, 2, 6, 11, 13, 16, 22],
+        "medium": [4, 7, 10, 12, 14, 15, 19, 20],
+        "hard": [3, 5, 8, 9, 17, 18, 21],
+    },
+}
 
 
 def objective(config, experiment_dir):
     output_dir = experiment_dir / str(train.get_context().get_trial_id())
     output_dir.mkdir(parents=True)
 
-    total_ar_weight = config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
+    total_ar_weight = (
+        config["easy_ar_weight"] + config["med_ar_weight"] + config["hard_ar_weight"]
+    )
     arrival_rate = config["arrival_rate"]
     easy_ar = arrival_rate * config["easy_ar_weight"] / total_ar_weight
     med_ar = arrival_rate * config["med_ar_weight"] / total_ar_weight
     hard_ar = arrival_rate * config["hard_ar_weight"] / total_ar_weight
 
-    partitioning = generate_partition_string(query_difficulty_map[
-        (config["tpch_dataset_size"], config["tpch_max_executors_per_job"])
-    ])
+    partitioning = generate_partition_string(
+        query_difficulty_map[
+            (config["tpch_dataset_size"], config["tpch_max_executors_per_job"])
+        ]
+    )
 
     workload_spec_flags = [
-        "--partitioning-scheme", partitioning,
-        "--num-queries", config["invocations"],
-        "--arrival-rates", easy_ar, med_ar, hard_ar,
-        "--dataset-size", config["tpch_dataset_size"],
-        "--max-cores", config["tpch_max_executors_per_job"],
-        "--deadline-variance", config["min_deadline_variance"], config["max_deadline_variance"],
-        "--min-task-runtime", 12,
-        "--tpch-query-dag-spec", "profiles/workload/tpch/queries.yaml",
-        "--profile-type", "Cloudlab",
-        "--random-seed", 1234,
+        "--partitioning-scheme",
+        partitioning,
+        "--num-queries",
+        config["invocations"],
+        "--arrival-rates",
+        easy_ar,
+        med_ar,
+        hard_ar,
+        "--dataset-size",
+        config["tpch_dataset_size"],
+        "--max-cores",
+        config["tpch_max_executors_per_job"],
+        "--deadline-variance",
+        config["min_deadline_variance"],
+        config["max_deadline_variance"],
+        "--min-task-runtime",
+        12,
+        "--tpch-query-dag-spec",
+        "profiles/workload/tpch/queries.yaml",
+        "--profile-type",
+        "Cloudlab",
+        "--random-seed",
+        1234,
     ]
     workload_spec = generate_workload(output_dir, workload_spec_flags)
 
@@ -297,11 +184,16 @@ def objective(config, experiment_dir):
         "--tpch_query_dag_spec=profiles/workload/tpch/queries.yaml",
         "--worker_profile_path=profiles/workers/tpch_cluster.yaml",
         "--random_seed=1234",
-        "--slo_ramp_up_clip", 10,
-        "--slo_ramp_down_clip", 10,
-        "--tpch_workload_spec", workload_spec,
-        "--tpch_dataset_size", config["tpch_dataset_size"],
-        "--tpch_max_executors_per_job", config["tpch_max_executors_per_job"],
+        "--slo_ramp_up_clip",
+        10,
+        "--slo_ramp_down_clip",
+        10,
+        "--tpch_workload_spec",
+        workload_spec,
+        "--tpch_dataset_size",
+        config["tpch_dataset_size"],
+        "--tpch_max_executors_per_job",
+        config["tpch_max_executors_per_job"],
     ]
 
     result_edf = run_edf(output_dir, sim_flags)
@@ -311,10 +203,12 @@ def objective(config, experiment_dir):
     dsched_slo, dsched_analysis = result_dsched["slot"], result_dsched["analysis"]
 
     metric = (
-        (150 * math.log(dsched_slo / 0.8) if dsched_slo < 0.8 else 0) # penalize for dsched going below 80%
+        (
+            150 * math.log(dsched_slo / 0.8) if dsched_slo < 0.8 else 0
+        )  # penalize for dsched going below 80%
         + 2 * (dsched_slo - edf_slo)  # maximize slo difference, weighted by 2
         + (edf_analysis["avg"] - edf_analysis["eff"])  # maximize util difference in edf
-        + dsched_analysis["eff"] # maximize effective util in dsched
+        + dsched_analysis["eff"]  # maximize effective util in dsched
     )
 
     result = {
@@ -335,6 +229,7 @@ def objective(config, experiment_dir):
 # Things to configure before spawning a search:
 # - variables in main
 # - generate_search_space config space
+
 
 def main():
     num_samples = 10000
