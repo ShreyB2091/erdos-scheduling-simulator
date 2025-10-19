@@ -37,3 +37,14 @@ traces/alibaba-cluster-trace-v2018/*.pkl
 
 # SOSP 25
 sosp25/logs/*
+
+# Tetrisched files
+tetrisched_*.log
+libtetrisched_performance.csv
+tetrisched_*.dot
+
+# Stderr and Stdout files
+*.stderr
+*.stdout
+
+output

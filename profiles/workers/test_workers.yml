@@ -1,0 +1,12 @@
+- name: TestWorkerPool
+  workers:
+    - name: TestWorker_1
+      resources:
+        - name: CPU
+          quantity: 4
+        - name: GPU
+          quantity: 1
+    - name: TestWorker_2
+      resources:
+        - name: CPU
+          quantity: 4

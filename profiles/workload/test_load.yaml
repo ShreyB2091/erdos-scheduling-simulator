@@ -1,0 +1,26 @@
+graphs:
+    - name: Test
+      graph: 
+        - name: Task1
+          work_profile: Task1Profile
+        - name: Task2
+          work_profile: Task2Profile
+      release_policy: fixed
+      period: 0
+      invocations: 1
+      deadline_variance: [0, 100]
+
+profiles:
+    - name: Task1Profile
+      execution_strategies:
+        - batch_size: 1
+          runtime: 50
+          resource_requirements:
+            CPU:any: 2
+            GPU:any: 1
+    - name: Task2Profile
+      execution_strategies:
+        - batch_size: 1
+          runtime: 100
+          resource_requirements:
+            CPU:any: 2
