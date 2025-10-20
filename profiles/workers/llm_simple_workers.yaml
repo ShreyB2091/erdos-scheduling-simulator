@@ -1,0 +1,46 @@
+# ============================================================================
+# SIMPLE WORKER CONFIGURATION FOR LLM INFERENCE
+# ============================================================================
+# Simple worker pool with Slot_1 resources for basic LLM inference workload
+# Matches the resource requirements in llm_inference_workload.yaml
+# ============================================================================
+
+worker_pools:
+  # Single worker pool with multiple workers
+  - name: LLMWorkerPool
+    workers:
+      # Worker 1
+      - name: worker_1
+        resources:
+          Slot_1:worker_1: 1           # 1 execution slot
+
+      # Worker 2
+      - name: worker_2
+        resources:
+          Slot_1:worker_2: 1           # 1 execution slot
+
+      # Worker 3
+      - name: worker_3
+        resources:
+          Slot_1:worker_3: 1           # 1 execution slot
+
+      # Worker 4
+      - name: worker_4
+        resources:
+          Slot_1:worker_4: 1           # 1 execution slot
+
+# ============================================================================
+# RESOURCE SUMMARY
+# ============================================================================
+# Total Workers: 4
+# Total Slots: 4 (1 per worker)
+#
+# This configuration provides 4 execution slots that can be used for:
+# - Prefill tasks (5 microseconds each)
+# - Decode tasks (1 microsecond each)
+#
+# With 10 requests arriving every 20 microseconds, and each request taking
+# 10 microseconds total, this configuration should handle the workload with
+# some headroom for scheduling flexibility.
+# ============================================================================
+

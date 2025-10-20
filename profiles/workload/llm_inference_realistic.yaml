@@ -1,0 +1,184 @@
+# ============================================================================
+# REALISTIC LLM INFERENCE WORKLOAD
+# ============================================================================
+# Models realistic LLM inference with:
+# - Multiple execution strategies (GPU vs CPU)
+# - Variable arrival patterns (Poisson arrivals)
+# - Model loading overhead
+# - Different request types (short vs long generation)
+# ============================================================================
+
+profiles:
+  # Prefill phase with GPU and CPU execution strategies
+  - name: PrefillProfile
+    # Optional: Model loading time (e.g., loading weights to GPU)
+    loading_strategies:
+      - runtime: 100                     # 100 microseconds to load model
+        resource_requirements:
+          GPU:any: 1
+          Memory:any: 2048
+    
+    execution_strategies:
+      # GPU-accelerated prefill (fast)
+      - runtime: 5                       # 5 microseconds on GPU
+        batch_size: 1
+        resource_requirements:
+          GPU:any: 1                     # Requires 1 GPU
+          Memory:any: 512
+      
+      # CPU fallback prefill (slower)
+      - runtime: 20                      # 20 microseconds on CPU
+        batch_size: 1
+        resource_requirements:
+          CPU:any: 8                     # Requires 8 CPU cores
+          Memory:any: 256
+
+  # Decode phase with GPU and CPU execution strategies
+  - name: DecodeProfile
+    execution_strategies:
+      # GPU-accelerated decode (fast)
+      - runtime: 1                       # 1 microsecond per token on GPU
+        batch_size: 1
+        resource_requirements:
+          GPU:any: 1
+          Memory:any: 128
+      
+      # CPU fallback decode (slower)
+      - runtime: 4                       # 4 microseconds per token on CPU
+        batch_size: 1
+        resource_requirements:
+          CPU:any: 4
+          Memory:any: 64
+
+graphs:
+  # Standard LLM request: 1 prefill + 5 decode steps
+  - name: LLMInferenceStandard
+    release_policy: poisson              # Realistic arrival pattern
+    rate: 0.05                           # 0.05 requests per microsecond = 50 requests/ms
+    invocations: 100                     # Total of 100 requests
+    start: 0
+    deadline_variance: [0, 5]            # Add 0-5 microseconds deadline variance
+    
+    graph:
+      - name: Prefill
+        work_profile: PrefillProfile
+        slo: 15                          # 15 microseconds total SLO
+        children: ["Decode1"]
+      
+      - name: Decode1
+        work_profile: DecodeProfile
+        children: ["Decode2"]
+      
+      - name: Decode2
+        work_profile: DecodeProfile
+        children: ["Decode3"]
+      
+      - name: Decode3
+        work_profile: DecodeProfile
+        children: ["Decode4"]
+      
+      - name: Decode4
+        work_profile: DecodeProfile
+        children: ["Decode5"]
+      
+      - name: Decode5
+        work_profile: DecodeProfile
+        terminal: true
+
+  # Short generation request: 1 prefill + 2 decode steps
+  - name: LLMInferenceShort
+    release_policy: poisson
+    rate: 0.03                           # 30 requests/ms (less frequent)
+    invocations: 50
+    start: 0
+    
+    graph:
+      - name: PrefillShort
+        work_profile: PrefillProfile
+        slo: 10
+        children: ["DecodeShort1"]
+      
+      - name: DecodeShort1
+        work_profile: DecodeProfile
+        children: ["DecodeShort2"]
+      
+      - name: DecodeShort2
+        work_profile: DecodeProfile
+        terminal: true
+
+  # Long generation request: 1 prefill + 10 decode steps
+  - name: LLMInferenceLong
+    release_policy: poisson
+    rate: 0.01                           # 10 requests/ms (rare)
+    invocations: 20
+    start: 0
+    
+    graph:
+      - name: PrefillLong
+        work_profile: PrefillProfile
+        slo: 25                          # Longer SLO for long generation
+        children: ["DecodeLong1"]
+      
+      - name: DecodeLong1
+        work_profile: DecodeProfile
+        children: ["DecodeLong2"]
+      
+      - name: DecodeLong2
+        work_profile: DecodeProfile
+        children: ["DecodeLong3"]
+      
+      - name: DecodeLong3
+        work_profile: DecodeProfile
+        children: ["DecodeLong4"]
+      
+      - name: DecodeLong4
+        work_profile: DecodeProfile
+        children: ["DecodeLong5"]
+      
+      - name: DecodeLong5
+        work_profile: DecodeProfile
+        children: ["DecodeLong6"]
+      
+      - name: DecodeLong6
+        work_profile: DecodeProfile
+        children: ["DecodeLong7"]
+      
+      - name: DecodeLong7
+        work_profile: DecodeProfile
+        children: ["DecodeLong8"]
+      
+      - name: DecodeLong8
+        work_profile: DecodeProfile
+        children: ["DecodeLong9"]
+      
+      - name: DecodeLong9
+        work_profile: DecodeProfile
+        children: ["DecodeLong10"]
+      
+      - name: DecodeLong10
+        work_profile: DecodeProfile
+        terminal: true
+
+# ============================================================================
+# WORKLOAD MIX CHARACTERISTICS
+# ============================================================================
+# Standard requests (5 decode): 100 instances @ 50 req/ms
+# Short requests (2 decode):     50 instances @ 30 req/ms  
+# Long requests (10 decode):     20 instances @ 10 req/ms
+#
+# GPU execution (per request type):
+#   Standard: 5 (prefill) + 5*1 (decode) = 10 microseconds
+#   Short:    5 (prefill) + 2*1 (decode) = 7 microseconds
+#   Long:     5 (prefill) + 10*1 (decode) = 15 microseconds
+#
+# CPU execution (per request type):
+#   Standard: 20 (prefill) + 5*4 (decode) = 40 microseconds
+#   Short:    20 (prefill) + 2*4 (decode) = 28 microseconds
+#   Long:     20 (prefill) + 10*4 (decode) = 60 microseconds
+#
+# Scheduler can choose GPU or CPU strategies based on:
+# - Resource availability
+# - Deadline constraints
+# - Current system load
+# ============================================================================
+

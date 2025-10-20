@@ -1,0 +1,312 @@
+# ============================================================================
+# COMPREHENSIVE WORKLOAD PROFILE - ALL TUNABLE PARAMETERS
+# ============================================================================
+# This file demonstrates ALL tunable parameters available in the workload
+# YAML configuration for the ERDOS Scheduling Simulator.
+#
+# Time units: All times are in microseconds (us) unless otherwise noted.
+# ============================================================================
+
+# ============================================================================
+# PROFILES SECTION
+# ============================================================================
+# Defines reusable work profiles that can be referenced by jobs in the graph
+profiles:
+  # Profile 1: Full-featured profile with loading and execution strategies
+  - name: ComplexProfile
+    # Loading strategies: Strategies for loading this profile onto workers
+    # (e.g., model loading time for ML inference)
+    loading_strategies:
+      - runtime: 5000                    # Time to load (microseconds)
+        batch_size: 1                    # Batch size for loading
+        resource_requirements:
+          CPU:any: 2                     # Format: "ResourceType:ResourceID": quantity
+          Memory:any: 1024               # Can specify any resource type
+    
+    # Execution strategies: Different ways to execute this workload
+    # Scheduler can choose between multiple strategies
+    execution_strategies:
+      # Strategy 1: Fast execution, more resources
+      - runtime: 1000                    # Execution time (microseconds)
+        batch_size: 1                    # Number of items processed together
+        resource_requirements:
+          Slot_1:any: 4                  # 4 units of Slot_1 resource
+          GPU:any: 1                     # 1 GPU
+      
+      # Strategy 2: Slower execution, fewer resources
+      - runtime: 2000                    # Slower but uses fewer resources
+        batch_size: 1
+        resource_requirements:
+          Slot_1:any: 2                  # Only 2 units of Slot_1
+          CPU:any: 4                     # Use CPU instead of GPU
+
+  # Profile 2: Simple profile with only execution strategies
+  - name: SimpleProfile
+    execution_strategies:
+      - runtime: 500
+        batch_size: 1
+        resource_requirements:
+          Slot_2:any: 1
+
+  # Profile 3: Profile with multiple resource types
+  - name: MultiResourceProfile
+    execution_strategies:
+      - runtime: 1500
+        batch_size: 2                    # Processes 2 items at once
+        resource_requirements:
+          CPU:worker1: 2                 # Specific to worker1
+          GPU:worker1: 1
+          Memory:any: 512                # Any worker with Memory
+
+  # Profile 4: Minimal profile (only name is required)
+  - name: MinimalProfile
+    execution_strategies:
+      - runtime: 100
+        resource_requirements:
+          Slot_1:any: 1
+
+# ============================================================================
+# GRAPHS SECTION
+# ============================================================================
+# Defines job graphs (DAGs) that describe task dependencies and release patterns
+graphs:
+  
+  # -------------------------------------------------------------------------
+  # Graph 1: PERIODIC Release Policy
+  # -------------------------------------------------------------------------
+  - name: PeriodicJobGraph
+    release_policy: periodic             # Jobs arrive periodically
+    period: 10000                        # Period between arrivals (microseconds)
+    start: 0                            # Optional: Start time (default: 0)
+    deadline_variance: [0, 1000]        # Optional: [min, max] variance in deadline
+    
+    graph:
+      # Root job with full parameter set
+      - name: PeriodicRoot
+        work_profile: ComplexProfile     # References profile defined above
+        slo: 5000                        # Service Level Objective (deadline, us)
+        conditional: false               # Optional: Is this a conditional branch? (default: false)
+        probability: 1.0                 # Optional: Execution probability (default: 1.0)
+        terminal: false                  # Optional: Is this a terminal node? (default: false)
+        children: ["PeriodicChild1", "PeriodicChild2"]  # Array of child job names
+      
+      # Child jobs
+      - name: PeriodicChild1
+        work_profile: SimpleProfile
+        slo: 3000
+      
+      - name: PeriodicChild2
+        work_profile: MultiResourceProfile
+        slo: 3500
+
+  # -------------------------------------------------------------------------
+  # Graph 2: FIXED Release Policy
+  # -------------------------------------------------------------------------
+  - name: FixedJobGraph
+    release_policy: fixed                # Fixed number of periodic arrivals
+    period: 5000                         # Period between arrivals (microseconds)
+    invocations: 100                     # Total number of job instances to release
+    start: 1000                          # Start at 1000 us
+    
+    graph:
+      - name: FixedTask
+        work_profile: SimpleProfile
+        slo: 4000
+
+  # -------------------------------------------------------------------------
+  # Graph 3: POISSON Release Policy
+  # -------------------------------------------------------------------------
+  - name: PoissonJobGraph
+    release_policy: poisson              # Poisson arrival process
+    rate: 0.0001                         # Arrival rate (jobs per microsecond)
+    invocations: 50                      # Total number of arrivals
+    start: 0
+    
+    graph:
+      - name: PoissonTask
+        work_profile: MinimalProfile
+        slo: 2000
+
+  # -------------------------------------------------------------------------
+  # Graph 4: GAMMA Release Policy
+  # -------------------------------------------------------------------------
+  - name: GammaJobGraph
+    release_policy: gamma                # Gamma distribution arrivals
+    rate: 0.0002                         # Arrival rate (jobs per microsecond)
+    coefficient: 2.5                     # Gamma shape parameter (coefficient of variation)
+    invocations: 75                      # Total number of arrivals
+    start: 500
+    
+    graph:
+      - name: GammaTask
+        work_profile: SimpleProfile
+
+  # -------------------------------------------------------------------------
+  # Graph 5: CLOSED_LOOP Release Policy
+  # -------------------------------------------------------------------------
+  - name: ClosedLoopJobGraph
+    release_policy: closed_loop          # New job released when previous completes
+    concurrency: 5                       # Max number of concurrent job instances
+    invocations: 200                     # Total number of job instances
+    start: 0
+    
+    graph:
+      - name: ClosedLoopTask
+        work_profile: ComplexProfile
+        slo: 10000
+
+  # -------------------------------------------------------------------------
+  # Graph 6: COMPLEX DAG with Conditional Branches
+  # -------------------------------------------------------------------------
+  - name: ComplexDAGGraph
+    release_policy: periodic
+    period: 20000
+    start: 0
+    deadline_variance: [0, 2000]
+    
+    graph:
+      # Root with multiple children (fork)
+      - name: DAGRoot
+        work_profile: ComplexProfile
+        slo: 15000
+        children: ["ConditionalBranch1", "ConditionalBranch2", "AlwaysExecute"]
+      
+      # Conditional branch 1 (70% probability)
+      - name: ConditionalBranch1
+        work_profile: SimpleProfile
+        conditional: true                # This job may or may not execute
+        probability: 0.7                 # 70% chance of execution
+        children: ["BranchMerge"]
+      
+      # Conditional branch 2 (30% probability)
+      - name: ConditionalBranch2
+        work_profile: MultiResourceProfile
+        conditional: true
+        probability: 0.3                 # 30% chance of execution
+        children: ["BranchMerge"]
+      
+      # Always executes (unconditional)
+      - name: AlwaysExecute
+        work_profile: MinimalProfile
+        children: ["BranchMerge"]
+      
+      # Join point (merge)
+      - name: BranchMerge
+        work_profile: SimpleProfile
+        children: ["FinalTask"]
+      
+      # Terminal task (sink)
+      - name: FinalTask
+        work_profile: ComplexProfile
+        terminal: true                   # Marks this as a terminal node
+
+  # -------------------------------------------------------------------------
+  # Graph 7: LINEAR CHAIN
+  # -------------------------------------------------------------------------
+  - name: LinearChainGraph
+    release_policy: fixed
+    period: 8000
+    invocations: 10
+    
+    graph:
+      - name: ChainTask1
+        work_profile: MinimalProfile
+        children: ["ChainTask2"]
+      
+      - name: ChainTask2
+        work_profile: SimpleProfile
+        children: ["ChainTask3"]
+      
+      - name: ChainTask3
+        work_profile: MultiResourceProfile
+        children: ["ChainTask4"]
+      
+      - name: ChainTask4
+        work_profile: ComplexProfile
+
+  # -------------------------------------------------------------------------
+  # Graph 8: JOB WITHOUT WORK PROFILE (No execution requirements)
+  # -------------------------------------------------------------------------
+  - name: NoProfileGraph
+    release_policy: fixed
+    period: 1000
+    invocations: 5
+    
+    graph:
+      - name: NoProfileTask
+        # No work_profile specified - this is valid
+        slo: 500
+
+# ============================================================================
+# SUMMARY OF ALL TUNABLE PARAMETERS
+# ============================================================================
+#
+# PROFILES:
+#   - name: (required) Unique identifier for the profile
+#   - loading_strategies: (optional) Array of loading strategies
+#     - runtime: (optional, default: 0) Loading time in microseconds
+#     - batch_size: (optional, default: 1) Batch size for loading
+#     - resource_requirements: (optional) Dict of "ResourceType:ResourceID": quantity
+#   - execution_strategies: (optional) Array of execution strategies
+#     - runtime: (optional, default: 0) Execution time in microseconds
+#     - batch_size: (optional, default: 1) Items processed together
+#     - resource_requirements: (optional) Dict of "ResourceType:ResourceID": quantity
+#
+# GRAPHS:
+#   - name: (required) Unique identifier for the job graph
+#   - release_policy: (required) One of: periodic, fixed, poisson, gamma, closed_loop
+#   - start: (optional, default: 0) Start time in microseconds
+#   - deadline_variance: (optional, default: [0, 0]) [min, max] deadline variance
+#   
+#   PERIODIC release_policy requires:
+#     - period: Period between arrivals (microseconds)
+#   
+#   FIXED release_policy requires:
+#     - period: Period between arrivals (microseconds)
+#     - invocations: Total number of job instances
+#   
+#   POISSON release_policy requires:
+#     - rate: Arrival rate (jobs per microsecond)
+#     - invocations: Total number of arrivals
+#   
+#   GAMMA release_policy requires:
+#     - rate: Arrival rate (jobs per microsecond)
+#     - coefficient: Gamma shape parameter
+#     - invocations: Total number of arrivals
+#   
+#   CLOSED_LOOP release_policy requires:
+#     - concurrency: Max concurrent job instances
+#     - invocations: Total number of job instances
+#   
+#   - graph: (required) Array of job nodes with:
+#     - name: (required) Unique job identifier within this graph
+#     - work_profile: (optional) Reference to a profile name
+#     - slo: (optional) Service Level Objective in microseconds
+#     - conditional: (optional, default: false) Is this a conditional branch?
+#     - probability: (optional, default: 1.0) Execution probability [0.0-1.0]
+#     - terminal: (optional, default: false) Is this a terminal/sink node?
+#     - children: (optional) Array of child job names
+#
+# ============================================================================
+# RESOURCE FORMAT:
+# ============================================================================
+# Resources are specified as "ResourceType:ResourceID": quantity
+# Examples:
+#   - Slot_1:any: 4          # 4 units of Slot_1, any worker
+#   - CPU:worker1: 2         # 2 CPUs specifically on worker1
+#   - GPU:any: 1             # 1 GPU on any worker
+#   - Memory:any: 1024       # 1024 memory units on any worker
+#
+# ============================================================================
+# OVERRIDE FLAGS (Command-line):
+# ============================================================================
+# These can be set via command-line flags to override YAML values:
+#   --override_poisson_arrival_rate: Override rate for Poisson/Gamma policies
+#   --override_gamma_coefficient: Override coefficient for Gamma policy
+#   --override_arrival_period: Override period for Periodic/Fixed policies
+#   --override_num_invocation: Override invocations count
+#   --override_slo: Override SLO for all jobs
+#   --unique_work_profiles: If true, don't deepcopy profiles for each graph
+#   --replication_factor: Replicate each job graph N times
+# ============================================================================
+
