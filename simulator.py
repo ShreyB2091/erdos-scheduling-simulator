@@ -1533,6 +1533,7 @@ class Simulator(object):
             self._logger.info(
                 "[%s] Placed %s on %s.", event.time.time, task, worker_pool
             )
+            self.__log_utilization(event.time)
             del self._future_placement_events[task.id]
             self._current_task_graph_placements[task.task_graph][
                 task.id

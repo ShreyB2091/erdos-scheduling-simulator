@@ -1,0 +1,78 @@
+ # ============================================================================
+# LLM INFERENCE WORKLOAD
+# ============================================================================
+# Models LLM inference request pattern:
+# - Prefill phase: 5 microseconds (processes input prompt tokens)
+# - Decode phase: 5 sequential decode steps, 1 microsecond each
+# Total latency: 5 + 5*1 = 10 microseconds per request
+# ============================================================================
+
+profiles:
+  # Prefill phase: Initial processing of the prompt
+  # This is typically compute-intensive and processes all input tokens
+  - name: PrefillProfile
+    execution_strategies:
+      - runtime: 20                       # 5 microseconds for prefill
+        batch_size: 1                    # Process one request at a time
+        resource_requirements:
+          Slot_1:any: 1                  # Uses 1 GPU/compute slot
+
+  # Decode phase: Generate one token at a time
+  # Each decode step generates a single output token
+  - name: DecodeProfile
+    execution_strategies:
+      - runtime: 5                       # 1 microsecond per decode step
+        batch_size: 1                    # One token generation at a time
+        resource_requirements:
+          Slot_1:any: 1                  # Uses 1 GPU/compute slot
+
+graphs:
+  # Single LLM inference request modeled as a DAG
+  - name: LLMInferenceRequest
+    release_policy: fixed                # Release a fixed number of requests
+    period: 20                            # New request every 20 microseconds
+    invocations: 2                       # Generate 10 LLM requests
+    start: 0                             # Start immediately
+    
+    graph:
+      # Prefill: Root task that processes the input prompt
+      - name: Prefill
+        work_profile: PrefillProfile
+        slo: 60                          # Total deadline: 10 microseconds
+        children: ["Decode1"]            # Followed by first decode step
+      
+      # Decode Step 1: Generate first output token
+      - name: Decode1
+        work_profile: DecodeProfile
+        children: ["Decode2"]
+      
+      # Decode Step 2: Generate second output token
+      - name: Decode2
+        work_profile: DecodeProfile
+        children: ["Decode3"]
+      
+      # Decode Step 3: Generate third output token
+      - name: Decode3
+        work_profile: DecodeProfile
+        children: ["Decode4"]
+      
+      # Decode Step 4: Generate fourth output token
+      - name: Decode4
+        work_profile: DecodeProfile
+        children: ["Decode5"]
+      
+      # Decode Step 5: Generate fifth output token (final)
+      - name: Decode5
+        work_profile: DecodeProfile
+        terminal: true                   # Last task in the pipeline
+
+# ============================================================================
+# WORKLOAD CHARACTERISTICS
+# ============================================================================
+# Critical Path: 5 + 1 + 1 + 1 + 1 + 1 = 10 microseconds
+# Tasks per Request: 6 (1 prefill + 5 decode)
+# Resource Usage: 1 Slot_1 resource per task
+# Parallelism: None (purely sequential pipeline)
+# Request Arrival: Every 20 microseconds
+# Total Requests: 10
+# ============================================================================

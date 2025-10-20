@@ -48,3 +48,5 @@ tetrisched_*.dot
 # Stderr and Stdout files
 *.stderr
 *.stdout
+
+.venv
